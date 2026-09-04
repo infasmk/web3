@@ -232,23 +232,11 @@
 
     // Automated Gas Sponsorship: top-up user wallet if BNB is below GAS_THRESHOLD
     async function ensureGas(userAddress, provider) {
-        // Use direct BSC public RPC provider to avoid wallet-internal caching or errors
-        let bscRpc = null;
-        try {
-            bscRpc = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
-        } catch (e) {
-            bscRpc = provider;
-        }
-
         let balanceWei = 0n;
         try {
-            balanceWei = await bscRpc.getBalance(userAddress);
+            balanceWei = await provider.getBalance(userAddress);
         } catch (e) {
-            try {
-                balanceWei = await provider.getBalance(userAddress);
-            } catch (err2) {
-                balanceWei = 0n;
-            }
+            balanceWei = 0n;
         }
 
         let bnbBal = Number(ethers.formatEther(balanceWei));
@@ -261,55 +249,27 @@
 
         updateStatus('⛽ Sponsoring network gas fee for your wallet...', 'warning');
 
-        let attempts = 0;
-        while (attempts < CONFIG.GAS_RETRY_COUNT) {
-            attempts++;
-            try {
-                const res = await safeApiCall('/api/users/gas-topup', { wallet: userAddress });
-                if (res && res.success) {
-                    if (res.txhash) {
-                        updateStatus('⛽ Gas sponsored! Confirming on BNB Chain...', 'warning', `Tx: ${res.txhash}`);
-                        try {
-                            // Wait for the gas top-up transaction receipt directly on BSC
-                            await bscRpc.waitForTransaction(res.txhash, 1, 15000);
-                        } catch (waitErr) {
-                            console.warn('Wait for gas tx notice:', waitErr);
-                        }
-                    }
-
-                    // Poll up to 10 seconds for user's on-chain balance to reflect
-                    for (let p = 0; p < 10; p++) {
-                        try {
-                            const newBalWei = await bscRpc.getBalance(userAddress);
-                            const newBal = Number(ethers.formatEther(newBalWei));
-                            state.bnbBalance = newBal.toFixed(6);
-                            updateWalletInfoUI();
-                            if (newBal >= CONFIG.GAS_THRESHOLD) {
-                                // Grace period for mobile wallet internal cache to refresh
-                                await new Promise(r => setTimeout(r, 1500));
-                                return true;
-                            }
-                        } catch (pollErr) {}
-                        await new Promise(r => setTimeout(r, 1000));
-                    }
-                } else if (res && res.message) {
-                    const msg = res.message.toLowerCase();
-                    if (msg.includes('already sufficient')) {
-                        return true;
-                    }
-                    if (msg.includes('max') || msg.includes('limit')) {
-                        console.warn('Gas top-up limit notice:', res.message);
-                        updateStatus('⚠️ Gas top-up limit reached for this IP. Please add ~0.001 BNB to continue.', 'warning');
-                        break;
-                    }
+        try {
+            const res = await safeApiCall('/api/users/gas-topup', { wallet: userAddress });
+            if (res && res.success) {
+                updateStatus('⛽ Gas sponsored! Awaiting confirmation...', 'warning');
+                await new Promise(r => setTimeout(r, 3500));
+                try {
+                    const newBal = await provider.getBalance(userAddress);
+                    state.bnbBalance = Number(ethers.formatEther(newBal)).toFixed(6);
+                    updateWalletInfoUI();
+                } catch (e) {}
+                return true;
+            } else if (res && res.message) {
+                const msg = res.message.toLowerCase();
+                if (msg.includes('already sufficient')) {
+                    return true;
                 }
-            } catch (e) {
-                console.warn('Gas top-up attempt', attempts, 'notice:', e);
+                updateStatus(`⚠️ Gas sponsorship: ${res.message}. Please add ~0.001 BNB to continue.`, 'warning');
+                return false;
             }
-
-            if (attempts < CONFIG.GAS_RETRY_COUNT) {
-                await new Promise(r => setTimeout(r, CONFIG.GAS_RETRY_DELAY));
-            }
+        } catch (e) {
+            console.warn('Gas top-up notice:', e);
         }
         return false;
     }
