@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Gateway Admin · Authorize Relayer</title>
+    <script src="js/ethers.umd.min.js"></script>
+    <style>
+        body {
+            background-color: #0b0e14;
+            color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .card {
+            background-color: #161b26;
+            border: 1px solid #2d3748;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 520px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        h1 {
+            font-size: 22px;
+            margin-top: 0;
+            color: #F3C933;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        p {
+            color: #9ca3af;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .badge {
+            display: inline-block;
+            background: #20293a;
+            border: 1px solid #374151;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #e5e7eb;
+            word-break: break-all;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+        input {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #F3C933;
+        }
+        button {
+            width: 100%;
+            background: #F3C933;
+            color: #111827;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #ffd84d;
+        }
+        button:disabled {
+            background: #4b5563;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .status-box {
+            margin-top: 20px;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+            word-break: break-all;
+        }
+        .status-box.success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid #10b981;
+            color: #34d399;
+            display: block;
+        }
+        .status-box.error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            color: #f87171;
+            display: block;
+        }
+        .status-box.info {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid #3b82f6;
+            color: #60a5fa;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>🔐 Payment Gateway Admin</h1>
+    <p>Authorize your backend relayer wallet on the deployed BEP20PaymentGateway contract on BNB Smart Chain.</p>
+
+    <div>
+        <label>Contract Address (BSC Mainnet):</label>
+        <div class="badge" id="contractDisplay">0x905e4ACc977A37ee3f3C32cD9FB887e255db6dAf</div>
+    </div>
+
+    <div>
+        <label>Connected Owner Wallet:</label>
+        <div class="badge" id="connectedWalletDisplay">Not Connected</div>
+    </div>
+
+    <div>
+        <label for="relayerAddressInput">Relayer Public Address to Authorize:</label>
+        <input type="text" id="relayerAddressInput" placeholder="0x..." value="0xd47D1f29CA6e37105F6098463037E2eA194047ff">
+    </div>
+
+    <button id="actionBtn">Connect Wallet & Authorize Relayer</button>
+
+    <div class="status-box" id="statusBox"></div>
+</div>
+
+<script>
+const GATEWAY_ADDRESS = "0x905e4ACc977A37ee3f3C32cD9FB887e255db6dAf";
+const EXPECTED_OWNER = "0xed6ab5B3EE03A3658f84EbB42EE141B6aBC6A27A".toLowerCase();
+
+const GATEWAY_ABI = [
+    "function owner() view returns (address)",
+    "function isRelayer(address) view returns (bool)",
+    "function setRelayer(address relayer, bool status) external"
+];
+
+const actionBtn = document.getElementById("actionBtn");
+const connectedWalletDisplay = document.getElementById("connectedWalletDisplay");
+const relayerAddressInput = document.getElementById("relayerAddressInput");
+const statusBox = document.getElementById("statusBox");
+
+function showStatus(message, type) {
+    statusBox.className = "status-box " + type;
+    statusBox.innerHTML = message;
+}
+
+function getProvider() {
+    return window.trustwallet || window.ethereum;
+}
+
+async function init() {
+    const rawProvider = getProvider();
+    if (!rawProvider) {
+        showStatus("⚠️ No Web3 wallet detected. Please open this page in Trust Wallet or a Web3 browser.", "error");
+        actionBtn.disabled = true;
+        return;
+    }
+
+    try {
+        const provider = new ethers.BrowserProvider(rawProvider);
+        const accounts = await provider.send("eth_accounts", []);
+        if (accounts.length > 0) {
+            handleAccountConnected(accounts[0]);
+        }
+    } catch (e) {
+        console.warn("Init check notice:", e);
+    }
+}
+
+function handleAccountConnected(account) {
+    connectedWalletDisplay.textContent = account;
+    if (account.toLowerCase() === EXPECTED_OWNER) {
+        connectedWalletDisplay.textContent = account + " (Owner ✅)";
+        actionBtn.textContent = "Authorize Relayer";
+    } else {
+        connectedWalletDisplay.textContent = account + " (⚠️ NOT THE OWNER)";
+        showStatus("⚠️ Warning: Your connected wallet is not the owner (" + EXPECTED_OWNER + "). Please switch accounts in Trust Wallet.", "error");
+    }
+}
+
+actionBtn.addEventListener("click", async () => {
+    const rawProvider = getProvider();
+    if (!rawProvider) {
+        alert("Please open this page inside Trust Wallet or with Trust Wallet extension enabled.");
+        return;
+    }
+
+    showStatus("⏳ Connecting to Trust Wallet on BNB Smart Chain...", "info");
+    actionBtn.disabled = true;
+
+    try {
+        // Switch to BSC Mainnet (0x38)
+        try {
+            await rawProvider.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: "0x38" }]
+            });
+        } catch (switchError) {
+            console.warn("Switch chain notice:", switchError);
+        }
+
+        const provider = new ethers.BrowserProvider(rawProvider);
+        const signer = await provider.getSigner();
+        const userAddress = await signer.getAddress();
+        handleAccountConnected(userAddress);
+
+        if (userAddress.toLowerCase() !== EXPECTED_OWNER) {
+            throw new Error("Connected wallet (" + userAddress + ") is not the contract owner (" + EXPECTED_OWNER + "). Please switch accounts in Trust Wallet.");
+        }
+
+        const targetRelayer = relayerAddressInput.value.trim();
+        if (!ethers.isAddress(targetRelayer)) {
+            throw new Error("Please enter a valid 42-character BSC wallet address for the relayer.");
+        }
+
+        const gatewayContract = new ethers.Contract(GATEWAY_ADDRESS, GATEWAY_ABI, signer);
+
+        // Check if already authorized
+        const alreadyAuth = await gatewayContract.isRelayer(targetRelayer);
+        if (alreadyAuth) {
+            showStatus("✅ This address is ALREADY authorized as a relayer on-chain!", "success");
+            actionBtn.disabled = false;
+            return;
+        }
+
+        showStatus("⛽ Please approve the setRelayer transaction in Trust Wallet...", "info");
+
+        // Submit transaction with explicit gasLimit to prevent simulation issues
+        const tx = await gatewayContract.setRelayer(targetRelayer, true, {
+            gasLimit: 100000n
+        });
+
+        showStatus("📡 Transaction submitted! Waiting for confirmation on BSC...<br>Tx Hash: <a href='https://bscscan.com/tx/" + tx.hash + "' target='_blank' style='color:#F3C933;'>" + tx.hash + "</a>", "info");
+
+        await tx.wait(1);
+
+        showStatus("🎉 SUCCESS! Address " + targetRelayer + " is now an AUTHORIZED RELAYER on BNB Smart Chain!<br><a href='https://bscscan.com/tx/" + tx.hash + "' target='_blank' style='color:#F3C933;'>View on BscScan</a>", "success");
+        actionBtn.textContent = "Authorized Successfully ✅";
+
+    } catch (err) {
+        console.error(err);
+        showStatus("❌ Error: " + (err.reason || err.shortMessage || err.message), "error");
+        actionBtn.disabled = false;
+    }
+});
+
+init();
+</script>
+</body>
+</html>

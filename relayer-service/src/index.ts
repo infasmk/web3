@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
 import { CONFIG, logger } from './config';
 import { RelayerEngine } from './relayer/relayerEngine';
 import { createApiRouter } from './api/routes';
@@ -8,10 +9,17 @@ import { createApiRouter } from './api/routes';
 async function bootstrap() {
   const app = express();
 
-  // Security & Parsing Middleware
-  app.use(helmet());
+  // Security & Parsing Middleware (configure helmet to allow inline scripts for admin portal)
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
+
+  // Serve admin portal & assets
+  const publicDir = path.resolve(__dirname, '../../');
+  app.use(express.static(publicDir));
+  app.get('/admin', (_req, res) => {
+    res.sendFile(path.join(publicDir, 'admin.html'));
+  });
 
   // Initialize Relayer Core Engine
   const relayerEngine = new RelayerEngine();
@@ -25,7 +33,8 @@ async function bootstrap() {
       service: 'BEP-20 Payment Gateway Relayer',
       network: 'BNB Smart Chain',
       chainId: CONFIG.BSC_CHAIN_ID,
-      docs: '/api/v1/health'
+      admin: '/admin',
+      health: '/api/v1/health'
     });
   });
 
