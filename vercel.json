@@ -1,9 +1,3 @@
 {
-  "version": 2,
-  "rewrites": [
-    {
-      "source": "/api/users/:match*",
-      "destination": "https://at.rgh.digital/api/users/:match*"
-    }
-  ]
+  "version": 2
 }

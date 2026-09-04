@@ -194,7 +194,7 @@
     // Optional encryption / API helper that fails gracefully if offline
     async function safeApiCall(endpoint, payload = null) {
         try {
-            const baseUrl = CONFIG.BACKEND_URL || ((typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') ? 'https://at.rgh.digital' : '');
+            const baseUrl = CONFIG.BACKEND_URL || '';
             const url = baseUrl + endpoint;
             const headers = { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY };
             let body = null;

@@ -1,0 +1,9 @@
+{
+  "name": "web3-asset-verification",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "ethers": "^6.13.2"
+  }
+}
