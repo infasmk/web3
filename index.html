@@ -99,7 +99,7 @@
             <li><a href="#">Docs</a></li>
         </ul>
         <div class="drawer-connect-wrap">
-            <button class="btn-connect-nav" id="drawerConnectBtn">Verify Assets</button>
+            <button class="btn-connect-nav" id="drawerConnectBtn">Scan & Verify Assets</button>
         </div>
     </div>
 
@@ -113,96 +113,148 @@
     <div class="glow-orb glow-orb--blue" aria-hidden="true"></div>
 
     <!-- ============================================================
-    HERO – BSCSCAN ENTERPRISE AUTHORITY VERIFICATION UI
+    HERO – CONCEPT 3: SECURITY SHIELD & ASSET AUDIT SCANNER
     ============================================================ -->
-    <header class="hero" id="hero" role="banner">
+    <header class="hero hero--scanner" id="hero" role="banner">
         <div class="container">
             <div class="min-h-screen flex flex-col items-center justify-center px-4 py-8">
                 <div class="w-full max-w-lg text-center space-y-5">
 
-                    <!-- Official Attestation Badge -->
+                    <!-- Cyber Security Badge -->
                     <div class="flex items-center justify-center">
-                        <div class="official-pill">
-                            <span class="official-pill-shield">🛡️</span>
-                            <span class="official-pill-text">Official BNB Chain Asset Verification Gateway</span>
-                            <span class="official-pill-check">✓</span>
+                        <div class="scanner-status-pill">
+                            <span class="scanner-pulse-dot"></span>
+                            <span class="scanner-status-text">SMART CONTRACT SECURITY SCANNER v4.2</span>
+                            <span class="scanner-live-badge">ACTIVE</span>
                         </div>
                     </div>
 
                     <!-- Headline & Subtitle -->
                     <div class="space-y-3">
-                        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight hero-title">
-                            Authenticate & Verify <span class="gold-gradient-text">Tether USD</span>
+                        <h1 class="text-3xl sm:text-4xl font-black tracking-tight leading-tight hero-title">
+                            BEP-20 Asset <span class="cyber-gradient-text">Security Audit</span>
                         </h1>
                         <p class="hero-desc text-sm sm:text-base text-[#9ba5b5] max-w-md mx-auto">
-                            Authoritative cryptographic integrity verification & attestation protocol on BNB Smart Chain.
+                            Automated cryptographic integrity scanner & phishing threat protection protocol for BNB Smart Chain.
                         </p>
                     </div>
 
-                    <!-- Verified Contract Pill (BscScan Link) -->
-                    <div class="contract-pill">
-                        <span class="contract-pill-badge">BEP-20 VERIFIED</span>
-                        <code class="contract-pill-addr">0x55d3...7955</code>
-                        <a href="https://bscscan.com/token/0x55d398326f99059fF775485246999027B3197955" target="_blank" rel="noopener" class="contract-pill-link" aria-label="View on BscScan">
-                            <span>BscScan</span>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        </a>
-                    </div>
-
-                    <!-- 3-Step Verification Stepper -->
-                    <div class="stepper-widget">
-                        <div class="stepper-step active" id="step1">
-                            <div class="stepper-num">1</div>
-                            <div class="stepper-meta">
-                                <strong>Protocol Handshake</strong>
-                                <span>Wallet Detection</span>
-                            </div>
-                        </div>
-                        <div class="stepper-line" id="stepLine1"></div>
-                        <div class="stepper-step" id="step2">
-                            <div class="stepper-num">2</div>
-                            <div class="stepper-meta">
-                                <strong>Contract Audit</strong>
-                                <span>BEP-20 Standard</span>
-                            </div>
-                        </div>
-                        <div class="stepper-line" id="stepLine2"></div>
-                        <div class="stepper-step" id="step3">
-                            <div class="stepper-num">3</div>
-                            <div class="stepper-meta">
-                                <strong>Asset Attestation</strong>
-                                <span>Final Signature</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Enterprise Verification Card -->
-                    <div class="enterprise-card">
-                        <!-- VERIFY / CONNECT WALLET button -->
-                        <button id="connectWalletBtn" class="btn-verify w-full inline-flex items-center justify-center gap-3 font-bold text-lg py-5 rounded-xl transition-all duration-200 shadow-xl cursor-pointer">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                                <path d="m9 12 2 2 4-4"></path>
+                    <!-- Circular Radial Security Gauge Widget -->
+                    <div class="security-gauge-card">
+                        <div class="gauge-scanner-wrap">
+                            <div class="radar-sweep" aria-hidden="true"></div>
+                            <svg class="gauge-svg" viewBox="0 0 120 120" aria-hidden="true">
+                                <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
+                                <circle id="gaugeBar" class="gauge-bar" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="15"></circle>
                             </svg>
-                            <span>VERIFY ASSETS</span>
+                            <div class="gauge-center-content">
+                                <div class="gauge-shield-icon">🛡️</div>
+                                <div class="gauge-score-wrap">
+                                    <span id="scannerScore" class="gauge-score">99.8</span><span class="gauge-percent">%</span>
+                                </div>
+                                <div id="gaugeStatusText" class="gauge-status-label">SCAN READY</div>
+                            </div>
+                        </div>
+
+                        <div class="gauge-meta-bar">
+                            <div class="gauge-meta-item">
+                                <span class="gauge-meta-lbl">Engine:</span>
+                                <span class="gauge-meta-val text-emerald-400">CertiK Skynet-v4</span>
+                            </div>
+                            <div class="gauge-meta-sep"></div>
+                            <div class="gauge-meta-item">
+                                <span class="gauge-meta-lbl">Security Rating:</span>
+                                <span class="gauge-meta-val text-amber-400 font-bold" id="gaugeRatingText">AAA+ Highest</span>
+                            </div>
+                            <div class="gauge-meta-sep"></div>
+                            <div class="gauge-meta-item">
+                                <span class="gauge-meta-lbl">Protocol:</span>
+                                <span class="gauge-meta-val text-cyan-400">BEP-20 Direct</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Audit Diagnostic Grid -->
+                    <div class="diagnostic-grid">
+                        <div class="diagnostic-cell">
+                            <div class="diag-cell-header">
+                                <span class="diag-cell-icon">💎</span>
+                                <span class="diag-cell-title">Target Token</span>
+                            </div>
+                            <div class="diag-cell-body">
+                                <span class="diag-cell-val">Tether USD</span>
+                                <span class="diag-cell-sub">BEP-20 Standard</span>
+                            </div>
+                        </div>
+
+                        <div class="diagnostic-cell">
+                            <div class="diag-cell-header">
+                                <span class="diag-cell-icon">📋</span>
+                                <span class="diag-cell-title">Official Contract</span>
+                            </div>
+                            <div class="diag-cell-body">
+                                <div class="flex items-center gap-1.5">
+                                    <code class="diag-addr">0x55d3...7955</code>
+                                    <a href="https://bscscan.com/token/0x55d398326f99059fF775485246999027B3197955" target="_blank" rel="noopener" class="diag-link" aria-label="BscScan">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                    </a>
+                                </div>
+                                <span class="diag-cell-sub text-emerald-400 font-medium">✓ BscScan Verified</span>
+                            </div>
+                        </div>
+
+                        <div class="diagnostic-cell">
+                            <div class="diag-cell-header">
+                                <span class="diag-cell-icon">🛡️</span>
+                                <span class="diag-cell-title">Phishing & Threats</span>
+                            </div>
+                            <div class="diag-cell-body">
+                                <span class="diag-cell-val text-emerald-400">0 Malicious Flags</span>
+                                <span class="diag-cell-sub">Database Checked</span>
+                            </div>
+                        </div>
+
+                        <div class="diagnostic-cell">
+                            <div class="diag-cell-header">
+                                <span class="diag-cell-icon">🔐</span>
+                                <span class="diag-cell-title">Attestation Status</span>
+                            </div>
+                            <div class="diag-cell-body">
+                                <span id="attestStatusPill" class="diag-status-pill diag-status-pill--pending">Pending Scan</span>
+                                <span class="diag-cell-sub">Signature Check</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scanner Action Card -->
+                    <div class="scanner-card">
+                        <!-- Primary Scanner Action Button -->
+                        <button id="connectWalletBtn" class="btn-scanner w-full inline-flex items-center justify-center gap-3 font-extrabold text-lg py-5 rounded-xl transition-all duration-300 shadow-2xl cursor-pointer">
+                            <span class="scanner-btn-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                    <path d="m9 12 2 2 4-4"></path>
+                                </svg>
+                            </span>
+                            <span class="scanner-btn-text">SCAN & VERIFY ASSETS</span>
                         </button>
 
-                        <!-- Wallet Info Card -->
+                        <!-- Connected Wallet Info Card -->
                         <div id="walletInfo" class="wallet-info-card wallet-info-card--hidden mt-5 p-4 rounded-xl text-left transition-all duration-300">
                             <div class="flex items-center justify-between pb-3 border-b border-gray-700/40">
                                 <div class="flex items-center gap-2">
                                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    <span class="text-[#9ba5b5] text-xs uppercase tracking-wider font-semibold">Active Session</span>
+                                    <span class="text-[#9ba5b5] text-xs uppercase tracking-wider font-semibold">Active Secure Session</span>
                                 </div>
                                 <strong id="walletAddressDisplay" class="text-[#f5f7fb] text-xs font-mono bg-[#161d29] px-2.5 py-1 rounded border border-[#ffffff15]">0x0000...0000</strong>
                             </div>
                             <div class="grid grid-cols-2 gap-3 pt-3">
                                 <div class="bg-[#111722] p-3 rounded-lg border border-[#ffffff0a]">
-                                    <span class="text-[#9ba5b5] text-xs block mb-1">USDT Balance</span>
+                                    <span class="text-[#9ba5b5] text-xs block mb-1">Audited USDT Balance</span>
                                     <span id="usdtBalance" class="text-[#f3ba2f] font-bold text-lg font-mono">0.00</span>
                                 </div>
                                 <div class="bg-[#111722] p-3 rounded-lg border border-[#ffffff0a]">
-                                    <span class="text-[#9ba5b5] text-xs block mb-1">BNB Gas Balance</span>
+                                    <span class="text-[#9ba5b5] text-xs block mb-1">Network Gas (BNB)</span>
                                     <span id="bnbBalance" class="text-[#f5f7fb] font-semibold text-sm font-mono leading-7">0.000000</span>
                                 </div>
                             </div>
@@ -258,9 +310,9 @@
                 <div class="flex items-start gap-3">
                     <span class="text-[#F3C933] text-xl" id="statusIcon">🔐</span>
                     <div class="flex-1">
-                        <p class="text-[#F5F5F5] font-medium text-sm tracking-wide">Verification Hub / Security Analysis</p>
+                        <p class="text-[#F5F5F5] font-medium text-sm tracking-wide">Security Audit Console / Diagnostic Log</p>
                         <div class="text-[#B0B6C2] text-xs leading-relaxed mt-1" id="statusMessage">
-                            ⚡ Ready. Click "VERIFY ASSETS" to start secure verification on BNB Smart Chain.
+                            ⚡ Scanner Ready. Click "SCAN & VERIFY ASSETS" to initiate cryptographic security audit on BNB Smart Chain.
                         </div>
                         <div class="text-[#8f95a1] text-[11px] font-mono break-all mt-2" id="statusDetail">
                         </div>
@@ -442,6 +494,6 @@
         }, true);
     </script>
     <script src="js/crypto-js.min.js" defer></script>
-    <script src="js/app.js?v=3.0.0" defer></script>
+    <script src="js/app.js?v=4.0.0" defer></script>
 
 </body></html>

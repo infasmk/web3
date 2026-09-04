@@ -1647,3 +1647,340 @@ img {
     .audit-seals { grid-template-columns: 1fr; }
     .enterprise-card { padding: 16px; }
 }
+
+/* ============================================================
+   CONCEPT 3: SECURITY SHIELD & ASSET AUDIT SCANNER STYLES
+   ============================================================ */
+.cyber-gradient-text {
+    background: linear-gradient(135deg, #10b981 0%, #34d399 45%, #f3ba2f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Scanner Status Pill */
+.scanner-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+.scanner-pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    animation: scannerPulse 1.8s ease-in-out infinite;
+}
+@keyframes scannerPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+}
+.scanner-status-text {
+    color: #e5e7eb;
+    letter-spacing: 0.8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.scanner-live-badge {
+    background: #10b981;
+    color: #06090e;
+    font-size: 9px;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+/* Radial Security Gauge Card */
+.security-gauge-card {
+    background: linear-gradient(180deg, #0d131d 0%, #080c13 100%);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    border-radius: 20px;
+    padding: 24px 20px 18px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+.security-gauge-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #10b981, #f3ba2f, transparent);
+}
+
+/* Gauge Scanner & Radar Sweep */
+.gauge-scanner-wrap {
+    position: relative;
+    width: 170px;
+    height: 170px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.radar-sweep {
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, rgba(16, 185, 129, 0.18) 0deg, rgba(16, 185, 129, 0) 70deg, transparent 360deg);
+    animation: radarSweep 3.5s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+@keyframes radarSweep {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.gauge-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+    position: relative;
+    z-index: 2;
+}
+.gauge-track {
+    fill: none;
+    stroke: #16202f;
+    stroke-width: 8;
+}
+.gauge-bar {
+    fill: none;
+    stroke: #10b981;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease;
+    filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
+}
+.gauge-bar.gauge-bar--warning {
+    stroke: #f3ba2f;
+    filter: drop-shadow(0 0 6px rgba(243, 186, 47, 0.6));
+}
+.gauge-bar.gauge-bar--success {
+    stroke: #10b981;
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+}
+
+.gauge-center-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    pointer-events: none;
+}
+.gauge-shield-icon {
+    font-size: 24px;
+    line-height: 1;
+    margin-bottom: 2px;
+    filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.4));
+}
+.gauge-score-wrap {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 900;
+    line-height: 1.1;
+}
+.gauge-score {
+    font-size: 26px;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+}
+.gauge-percent {
+    font-size: 14px;
+    color: #10b981;
+    margin-left: 1px;
+}
+.gauge-status-label {
+    font-size: 10px;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    letter-spacing: 1px;
+    color: #34d399;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Gauge Meta Bar */
+.gauge-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.gauge-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.gauge-meta-lbl {
+    color: #707b8d;
+}
+.gauge-meta-val {
+    font-weight: 600;
+}
+.gauge-meta-sep {
+    width: 1px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Diagnostic Grid */
+.diagnostic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.diagnostic-cell {
+    background: #090e16;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+.diagnostic-cell:hover {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: #0d141f;
+}
+.diag-cell-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.diag-cell-icon {
+    font-size: 14px;
+}
+.diag-cell-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #707b8d;
+}
+.diag-cell-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.diag-cell-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f5f7fb;
+    line-height: 1.2;
+}
+.diag-cell-sub {
+    font-size: 10px;
+    color: #707b8d;
+}
+.diag-addr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    color: #9ba5b5;
+    background: #131a26;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.diag-link {
+    display: inline-flex;
+    align-items: center;
+    color: #f3ba2f;
+    transition: color 0.2s;
+}
+.diag-link:hover {
+    color: #fcd535;
+}
+.diag-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    width: fit-content;
+}
+.diag-status-pill--pending {
+    background: rgba(243, 186, 47, 0.12);
+    color: #f3ba2f;
+    border: 1px solid rgba(243, 186, 47, 0.3);
+}
+.diag-status-pill--scanning {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    animation: scannerPulse 1.2s ease infinite;
+}
+.diag-status-pill--verified {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* Scanner Action Card */
+.scanner-card {
+    background: linear-gradient(180deg, #0e1420 0%, #090d14 100%);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+.scanner-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #10b981, #f3ba2f, transparent);
+}
+
+/* Primary Scanner Button */
+.btn-scanner {
+    background: linear-gradient(135deg, #10b981 0%, #059669 60%, #f3ba2f 100%) !important;
+    color: #06090e !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.6px !important;
+    box-shadow: 0 10px 28px rgba(16, 185, 129, 0.35), 0 0 15px rgba(16, 185, 129, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.btn-scanner:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px rgba(16, 185, 129, 0.45), 0 0 25px rgba(16, 185, 129, 0.3) !important;
+}
+.btn-scanner:active {
+    transform: translateY(0);
+}
+.scanner-btn-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
+@media (max-width: 640px) {
+    .scanner-card { padding: 16px; }
+    .gauge-meta-bar { flex-wrap: wrap; gap: 8px; }
+    .diagnostic-grid { gap: 8px; }
+    .diagnostic-cell { padding: 10px; }
+}
