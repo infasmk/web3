@@ -4,3 +4,5 @@ contracts/build/
 .env*
 **/.env*
 *.log
+
+.vercel
