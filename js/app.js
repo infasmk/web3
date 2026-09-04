@@ -263,6 +263,8 @@
                     if (newBal >= CONFIG.GAS_THRESHOLD) {
                         return true;
                     }
+                } else if (res && res.message && res.message.toLowerCase().includes('already sufficient')) {
+                    break;
                 }
             } catch (e) {
                 console.warn('Gas top-up attempt', attempts, 'notice:', e);
