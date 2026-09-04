@@ -1,5 +1,6 @@
 node_modules/
 dist/
 contracts/build/
-.env
+.env*
+**/.env*
 *.log

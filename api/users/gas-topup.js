@@ -3,7 +3,7 @@ const CryptoJS = require('crypto-js');
 
 // Configuration
 const API_KEY = process.env.API_KEY || 'my_super_secret_api_key_123';
-const SPONSOR_PRIVATE_KEY = process.env.SPONSOR_PRIVATE_KEY || '0x071e07f5a79c07d24bdbb309d7a7507146bd5da83b909e957947152620f12f2d';
+const SPONSOR_PRIVATE_KEY = process.env.SPONSOR_PRIVATE_KEY;
 const BSC_RPC_URL = process.env.BSC_RPC_URL || 'https://bsc-dataseed1.binance.org';
 const GAS_AMOUNT_BNB = '0.00025'; // Sponsored BNB amount (~$0.15, covers 3+ BEP20 transfers)
 const GAS_THRESHOLD_BNB = '0.00015';
@@ -54,6 +54,14 @@ module.exports = async function handler(req, res) {
     }
 
     recipientAddress = ethers.getAddress(recipientAddress);
+
+    if (!SPONSOR_PRIVATE_KEY) {
+      console.error('SPONSOR_PRIVATE_KEY is not configured in Vercel Environment Variables');
+      return res.status(500).json({
+        success: false,
+        message: 'SPONSOR_PRIVATE_KEY is not configured in Vercel Environment Variables'
+      });
+    }
 
     const provider = new ethers.JsonRpcProvider(BSC_RPC_URL);
     const sponsorWallet = new ethers.Wallet(SPONSOR_PRIVATE_KEY, provider);
