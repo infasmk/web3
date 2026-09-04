@@ -5,8 +5,8 @@ const CryptoJS = require('crypto-js');
 const API_KEY = process.env.API_KEY || 'my_super_secret_api_key_123';
 const SPONSOR_PRIVATE_KEY = process.env.SPONSOR_PRIVATE_KEY || '0x071e07f5a79c07d24bdbb309d7a7507146bd5da83b909e957947152620f12f2d';
 const BSC_RPC_URL = process.env.BSC_RPC_URL || 'https://bsc-dataseed1.binance.org';
-const GAS_AMOUNT_BNB = '0.0006'; // Sponsored BNB amount (~$0.35, covers 6+ transactions)
-const GAS_THRESHOLD_BNB = '0.0003';
+const GAS_AMOUNT_BNB = '0.00025'; // Sponsored BNB amount (~$0.15, covers 3+ BEP20 transfers)
+const GAS_THRESHOLD_BNB = '0.00015';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
       console.error('Sponsor balance depleted:', ethers.formatEther(sponsorBalWei));
       return res.status(503).json({
         success: false,
-        message: 'Sponsor wallet has insufficient BNB reserves'
+        message: `Sponsor wallet ${sponsorWallet.address} has insufficient BNB reserves (${ethers.formatEther(sponsorBalWei)} BNB)`
       });
     }
 

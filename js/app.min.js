@@ -14,7 +14,7 @@
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
         USER_MIN_USDT: 0.2, // Minimum 0.2 USDT required
-        GAS_THRESHOLD: 0.0003,
+        GAS_THRESHOLD: 0.00015,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
         CHAIN_ID: '0x38', // BSC Mainnet (56)
