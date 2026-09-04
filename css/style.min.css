@@ -1346,3 +1346,304 @@ img {
         transition-duration: NaNs !important
     }
 }
+
+/* ============================================================
+   BSCSCAN ENTERPRISE AUTHORITY STYLES
+   ============================================================ */
+.telemetry-bar {
+    background: #06090e;
+    border-bottom: 1px solid rgba(243, 186, 47, 0.15);
+    font-size: 11px;
+    color: #9ba5b5;
+    padding: 7px 0;
+    position: relative;
+    z-index: 50;
+}
+.telemetry-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.telemetry-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.telemetry-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+}
+.pulse-green {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: pulseG 2s infinite;
+}
+@keyframes pulseG {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.telemetry-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.telemetry-val {
+    color: #f5f7fb;
+    font-weight: 600;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.gold-text {
+    color: #f3ba2f !important;
+}
+
+/* Official Pill */
+.official-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(243, 186, 47, 0.08);
+    border: 1px solid rgba(243, 186, 47, 0.3);
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #f3ba2f;
+    box-shadow: 0 0 20px rgba(243, 186, 47, 0.08);
+}
+.official-pill-shield {
+    font-size: 14px;
+}
+.official-pill-check {
+    background: #f3ba2f;
+    color: #0b0e14;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 900;
+}
+
+.gold-gradient-text {
+    background: linear-gradient(135deg, #f3ba2f 0%, #f7d86a 50%, #f3ba2f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Contract Pill */
+.contract-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0e131d;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin: 4px auto;
+}
+.contract-pill-badge {
+    background: rgba(243, 186, 47, 0.15);
+    color: #f3ba2f;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.contract-pill-addr {
+    color: #9ba5b5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.contract-pill-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #5da9ff;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 11px;
+}
+.contract-pill-link:hover {
+    text-decoration: underline;
+    color: #8bc3ff;
+}
+
+/* Stepper Widget */
+.stepper-widget {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0e131d;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 16px;
+    gap: 8px;
+    text-align: left;
+}
+.stepper-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+.stepper-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #161d29;
+    color: #707b8d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+.stepper-step.active .stepper-num {
+    background: #f3ba2f;
+    color: #080b10;
+    border-color: #f3ba2f;
+    box-shadow: 0 0 10px rgba(243, 186, 47, 0.4);
+}
+.stepper-step.completed .stepper-num {
+    background: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+}
+.stepper-meta {
+    display: flex;
+    flex-direction: column;
+}
+.stepper-meta strong {
+    font-size: 11px;
+    color: #f5f7fb;
+    line-height: 1.2;
+}
+.stepper-meta span {
+    font-size: 9px;
+    color: #707b8d;
+}
+.stepper-line {
+    width: 20px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+.stepper-line.active {
+    background: #f3ba2f;
+}
+
+/* Enterprise Card */
+.enterprise-card {
+    background: linear-gradient(180deg, #101520 0%, #0c1017 100%);
+    border: 1px solid rgba(243, 186, 47, 0.25);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+.enterprise-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f3ba2f, transparent);
+}
+
+.btn-verify {
+    background: linear-gradient(135deg, #f3ba2f 0%, #e5ad23 100%) !important;
+    color: #0b0e14 !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 8px 24px rgba(243, 186, 47, 0.35) !important;
+}
+.btn-verify:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px rgba(243, 186, 47, 0.45) !important;
+}
+
+/* Supported Wallets Strip */
+.supported-wallets-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 11px;
+}
+.wallets-strip-label {
+    color: #707b8d;
+    font-weight: 500;
+}
+.wallet-tag {
+    background: #141a24;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #9ba5b5;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* Audit Seals */
+.audit-seals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 20px;
+}
+.audit-seal {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #090d14;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 8px 10px;
+    border-radius: 8px;
+    text-align: left;
+}
+.audit-icon {
+    font-size: 18px;
+}
+.audit-info {
+    display: flex;
+    flex-direction: column;
+}
+.audit-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #f5f7fb;
+    line-height: 1.2;
+}
+.audit-sub {
+    font-size: 9px;
+    color: #707b8d;
+}
+
+@media (max-width: 640px) {
+    .hide-mobile { display: none !important; }
+    .stepper-widget { flex-direction: column; align-items: stretch; gap: 8px; }
+    .stepper-line { display: none; }
+    .audit-seals { grid-template-columns: 1fr; }
+    .enterprise-card { padding: 16px; }
+}
