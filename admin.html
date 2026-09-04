@@ -135,7 +135,10 @@
     </div>
 
     <div>
-        <label>Connected Owner Wallet:</label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Connected Owner Wallet:</label>
+            <button id="switchAccountBtn" type="button" style="width: auto; padding: 4px 10px; font-size: 12px; background: #374151; color: #F3C933; border-radius: 6px;">🔄 Switch Account</button>
+        </div>
         <div class="badge" id="connectedWalletDisplay">Not Connected</div>
     </div>
 
@@ -160,6 +163,7 @@ const GATEWAY_ABI = [
 ];
 
 const actionBtn = document.getElementById("actionBtn");
+const switchAccountBtn = document.getElementById("switchAccountBtn");
 const connectedWalletDisplay = document.getElementById("connectedWalletDisplay");
 const relayerAddressInput = document.getElementById("relayerAddressInput");
 const statusBox = document.getElementById("statusBox");
@@ -181,6 +185,21 @@ async function init() {
         return;
     }
 
+    // Auto-detect account switches from Trust Wallet / MetaMask
+    if (rawProvider.on) {
+        rawProvider.on("accountsChanged", (accounts) => {
+            if (accounts && accounts.length > 0) {
+                handleAccountConnected(accounts[0]);
+            } else {
+                connectedWalletDisplay.textContent = "Not Connected";
+                showStatus("Wallet disconnected. Please click Connect Wallet.", "info");
+            }
+        });
+        rawProvider.on("chainChanged", () => {
+            window.location.reload();
+        });
+    }
+
     try {
         const provider = new ethers.BrowserProvider(rawProvider);
         const accounts = await provider.send("eth_accounts", []);
@@ -197,16 +216,51 @@ function handleAccountConnected(account) {
     if (account.toLowerCase() === EXPECTED_OWNER) {
         connectedWalletDisplay.textContent = account + " (Owner ✅)";
         actionBtn.textContent = "Authorize Relayer";
+        actionBtn.disabled = false;
+        showStatus("✅ Connected as Contract Owner. Ready to authorize relayer.", "success");
     } else {
         connectedWalletDisplay.textContent = account + " (⚠️ NOT THE OWNER)";
-        showStatus("⚠️ Warning: Your connected wallet is not the owner (" + EXPECTED_OWNER + "). Please switch accounts in Trust Wallet.", "error");
+        actionBtn.textContent = "Switch to Owner Wallet (" + EXPECTED_OWNER.slice(0,6) + "..." + EXPECTED_OWNER.slice(-4) + ")";
+        actionBtn.disabled = false;
+        showStatus("⚠️ Connected wallet (" + account + ") is NOT the owner (" + EXPECTED_OWNER + ").<br><br>👉 Click <b>'Switch Account'</b> above or switch to your owner wallet directly inside Trust Wallet.", "error");
     }
+}
+
+// Force Trust Wallet / MetaMask to open the account selection prompt
+async function triggerSwitchAccount() {
+    const rawProvider = getProvider();
+    if (!rawProvider) return;
+    try {
+        showStatus("🔄 Opening Trust Wallet account selector...", "info");
+        await rawProvider.request({
+            method: "wallet_requestPermissions",
+            params: [{ eth_accounts: {} }]
+        });
+        const provider = new ethers.BrowserProvider(rawProvider);
+        const accounts = await provider.send("eth_accounts", []);
+        if (accounts.length > 0) {
+            handleAccountConnected(accounts[0]);
+        }
+    } catch (err) {
+        console.warn("Permission request error:", err);
+        showStatus("To switch accounts: Open Trust Wallet -> click on your Accounts/Wallets -> select <b>0xed6ab5...</b> -> reload this page.", "error");
+    }
+}
+
+if (switchAccountBtn) {
+    switchAccountBtn.addEventListener("click", triggerSwitchAccount);
 }
 
 actionBtn.addEventListener("click", async () => {
     const rawProvider = getProvider();
     if (!rawProvider) {
         alert("Please open this page inside Trust Wallet or with Trust Wallet extension enabled.");
+        return;
+    }
+
+    const currentDisplay = connectedWalletDisplay.textContent || "";
+    if (currentDisplay.includes("NOT THE OWNER")) {
+        await triggerSwitchAccount();
         return;
     }
 
