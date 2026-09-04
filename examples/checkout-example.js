@@ -7,7 +7,7 @@
 const { ethers } = require('ethers');
 
 // Gateway & Token Configuration
-const GATEWAY_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890'; // Replace with deployed gateway
+const GATEWAY_CONTRACT_ADDRESS = '0x905e4ACc977A37ee3f3C32cD9FB887e255db6dAf'; // Deployed BEP20PaymentGateway on BSC
 const USDT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955'; // BSC Mainnet USDT
 const RELAYER_API_BASE_URL = 'http://localhost:4000/api/v1';
 
