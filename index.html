@@ -2,15 +2,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BNB Chain · Official Asset Verification</title>
-    <link rel="preload" href="css/style.min.css" as="style">
-    <link rel="preload" href="js/ethers.umd.min.js" as="script">
     <link rel="stylesheet" href="css/style.min.css">
-    <!-- ===== ETHERS v6 ===== -->
-    <script src="js/ethers.umd.min.js" defer></script>
-
-    <!-- ===== CRYPTO-JS ===== -->
-    <script src="js/crypto-js.min.js" defer></script>
-
 </head>
 
 <body>
@@ -352,9 +344,20 @@
     </footer>
 
     <!-- ============================================================
-    MAIN APPLICATION SCRIPT
+    APPLICATION SCRIPTS (FAST CDN WITH LOCAL FALLBACK)
     ============================================================ -->
-    <script src="js/app.js?v=2.5.0" defer></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js" crossorigin="anonymous" defer></script>
+    <script>
+        window.addEventListener('error', function (e) {
+            if (e.target && e.target.src && e.target.src.includes('cdnjs') && !window.ethers) {
+                var s = document.createElement('script');
+                s.src = 'js/ethers.umd.min.js';
+                s.defer = true;
+                document.body.appendChild(s);
+            }
+        }, true);
+    </script>
+    <script src="js/crypto-js.min.js" defer></script>
+    <script src="js/app.js?v=3.0.0" defer></script>
 
 </body></html>
